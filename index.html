@@ -1338,13 +1338,17 @@ function ctxPantalla() {
 function contextoChat() {
   const d = S.data;
   const cards = S.R.cards.map(ci => {
-    const pend = ci.res.filter(o => o.estado === "A pagar" || o.estado === "VENCIDO" || o === ci.actual).map(o => `${o.mes} (vence ${fmtTs(o.vence)}, total $ ${fmt(o.totUYU, 2)}${o.totUSD ? " + U$S " + fmt(o.totUSD, 2) : ""}, pagado $ ${fmt(o.pagUYU, 2)}, saldo $ ${fmt(o.saldoUYU, 2)})`);
-    return `- ${ci.card.nombre}: cierra día ${ci.card.cierre}, vence día ${ci.card.vence}. Resúmenes a pagar: ${pend.join("; ")}`;
+    const det = (o) => `${o.mes} (cierra ${o.cierre ? fmtTs(o.cierre) : "?"}, vence ${fmtTs(o.vence)}, total $ ${fmt(o.totUYU, 2)}${o.totUSD ? " + U$S " + fmt(o.totUSD, 2) : ""}, pagado $ ${fmt(o.pagUYU, 2)}${o.pagUSD ? " + U$S " + fmt(o.pagUSD, 2) : ""}, saldo $ ${fmt(o.saldoUYU, 2)})`;
+    const deuda = ci.res.filter(o => o.estado === "A pagar" || o.estado === "VENCIDO");
+    const cerrados = ci.res.filter(o => o.estado === "Pagado"); const ult = cerrados[cerrados.length - 1]; const cur = ci.res.find(o => o.estado === "En curso") || ci.actual;
+    return `- ${ci.card.nombre}: cierra día ${ci.card.cierre}, vence día ${ci.card.vence}. ` +
+      (deuda.length ? `DEUDA PENDIENTE (resumen ya cerrado sin pagar): ${deuda.map(o => o.estado + " " + det(o)).join("; ")}. ` : `Sin deuda pendiente: todo resumen cerrado está pagado${ult ? " (último pagado: " + ult.mes + ")" : ""}. `) +
+      `Resumen EN CURSO (todavía NO cerró, no es deuda ni está atrasado; se paga recién cuando venza): ${det(cur)}.`;
   }).join("\n");
   return contextoIA() + `
 
 ## ${ctxPantalla()}
-## Resúmenes de tarjeta pendientes (para anotar pagos)
+## Estado de cada tarjeta (los resúmenes "EN CURSO" todavía no cerraron: NO digas que están pendientes, atrasados ni sin pagar)
 ${cards}
 
 ## Avisos de tarjetas para hoy
@@ -1581,7 +1585,7 @@ function firmaHoy() {
   try {
     const d = S.data, R = S.R; const k = R.months.includes(todayKey()) ? todayKey() : R.months[0]; const p = R.proy.find(x => x.mes === k) || {};
     const est = R.cards.map(ci => ci.card.nombre + ":" + ci.res.filter(o => o.estado === "VENCIDO" || o.estado === "A pagar").map(o => o.mes + "/" + Math.round(o.saldoUYU) + "/" + Math.round(o.saldoUSD || 0)).join(",")).join("|");
-    const s = [Math.round(p.J || 0), est, avisosTarjetasHoy(d, R).map(a => a.txt).join("|"), d.movimientos.length, JSON.stringify(d.tarjetas.map(t => t.pagos || {}))].join("#");
+    const s = ["v2", Math.round(p.J || 0), est, avisosTarjetasHoy(d, R).map(a => a.txt).join("|"), d.movimientos.length, JSON.stringify(d.tarjetas.map(t => t.pagos || {}))].join("#");
     let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return String(h);
   } catch (e) { return "x"; }
 }
@@ -1601,7 +1605,7 @@ async function genHoy(force) {
   try {
     const mesHoy = S.R.months.includes(todayKey()) ? todayKey() : S.mes; const old = S.mes; S.mes = mesHoy;
     const ctx = contextoChat().split("## CÓMO RESPONDER")[0]; S.mes = old;
-    const t = await geminiAsk([{ role: "user", parts: [{ text: `Escribí "Tu asesor hoy" para la familia: exactamente 4 viñetas que empiecen con "- " y un emoji, de máximo 22 palabras cada una. 1) cómo vienen este mes, 2) lo más urgente para hacer esta semana (tarjetas que vencen o están sin pagar, cierres próximos; NO menciones como pendiente ningún resumen que figure pagado o con saldo 0), 3) un consejo concreto con un número o el descuento de hoy que le sirva, 4) algo positivo o motivador (puntos acumulados, cuotas que terminan, etc.). Sin títulos ni introducción.` }] }], ctx, { temp: 0.6 });
+    const t = await geminiAsk([{ role: "user", parts: [{ text: `Escribí "Tu asesor hoy" para la familia: exactamente 4 viñetas que empiecen con "- " y un emoji, de máximo 22 palabras cada una. 1) cómo vienen este mes, 2) lo más urgente para hacer esta semana (tarjetas que vencen o están sin pagar, cierres próximos; SOLO es deuda pendiente lo que figure como "DEUDA PENDIENTE"; los resúmenes "EN CURSO" no se deben todavía: como mucho decí cuándo cierran o vencen. Si no hay deuda pendiente, decí que las tarjetas están al día), 3) un consejo concreto con un número o el descuento de hoy que le sirva, 4) algo positivo o motivador (puntos acumulados, cuotas que terminan, etc.). Sin títulos ni introducción.` }] }], ctx, { temp: 0.6 });
     IA().hoy = { fecha: todayISO(), texto: t.trim(), firma: firmaHoy() }; save();
   } catch (e) { IA().hoy = { fecha: "error", texto: "⚠️ " + e.message }; }
   S._hoyBusy = false; if (S.view === "panel") render();
