@@ -384,8 +384,9 @@ const Engine = (() => {
         const pg = card.pagos[m] || {}; o.pagUYU = num(pg.uyu); o.pagUSD = num(pg.usd);
         o.saldoUYU = o.totUYU - o.pagUYU; o.saldoUSD = o.totUSD - o.pagUSD;
         o.totEq = o.totUYU + o.totUSD * TC;
+        { const vd = new Date(o.vence); o.desde = Date.UTC(vd.getUTCFullYear(), vd.getUTCMonth(), 1); }
         o.estado = (Math.abs(o.totUYU + o.totUSD) < 1e-9) ? "-" :
-          (o.saldoUYU <= 0.005 && o.saldoUSD <= 0.005 ? "Pagado" : (o.vence < T ? "VENCIDO" : (o.cierre < T ? "A pagar" : "En curso")));
+          (o.saldoUYU <= 0.005 && o.saldoUSD <= 0.005 ? "Pagado" : (o.vence < T ? "VENCIDO" : (o.cierre < T ? (T >= o.desde ? "A pagar" : "Cerrado") : "En curso")));
         return o;
       });
       let idx = res.filter(o => o.vence < T).length; if (idx >= res.length) idx = res.length - 1;
@@ -773,7 +774,7 @@ function svgDonut(pct, color, label, sub) {
 const pctColor = (p) => p >= 0.8 ? "#DC2626" : p >= 0.5 ? "#F59E0B" : "#16A34A";
 const barHTML = (p, col) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, p * 100))}%;background:${col || pctColor(p)}"></i></div>`;
 const semaPill = (L) => `<span class="pill ${L === "Rojo" ? "red" : L === "Amarillo" ? "amber" : L === "Verde" ? "green" : "gray"}">${L === "Rojo" ? "🔴" : L === "Amarillo" ? "🟡" : L === "Verde" ? "🟢" : "⚪"} ${L}</span>`;
-const estadoPill = (e) => ({ "Pagado": `<span class="pill green">✔ Pagado</span>`, "VENCIDO": `<span class="pill red">Vencido</span>`, "A pagar": `<span class="pill amber">A pagar</span>`, "En curso": `<span class="pill blue">En curso</span>`, "-": `<span class="pill gray">—</span>` })[e] || e;
+const estadoPill = (e) => ({ "Pagado": `<span class="pill green">✔ Pagado</span>`, "VENCIDO": `<span class="pill red">Vencido</span>`, "A pagar": `<span class="pill amber">A pagar</span>`, "En curso": `<span class="pill blue">En curso</span>`, "Cerrado": `<span class="pill gray">Cerrado · se paga el mes que viene</span>`, "-": `<span class="pill gray">—</span>` })[e] || e;
 const AV_ICON = { rojo: "🔴", verde: "🟢", naranja: "⚠️", amarillo: "🟡", info: "💡", gris: "ℹ️" };
 
 // ===================== PANTALLAS =====================
@@ -1340,9 +1341,10 @@ function contextoChat() {
   const cards = S.R.cards.map(ci => {
     const det = (o) => `${o.mes} (cierra ${o.cierre ? fmtTs(o.cierre) : "?"}, vence ${fmtTs(o.vence)}, total $ ${fmt(o.totUYU, 2)}${o.totUSD ? " + U$S " + fmt(o.totUSD, 2) : ""}, pagado $ ${fmt(o.pagUYU, 2)}${o.pagUSD ? " + U$S " + fmt(o.pagUSD, 2) : ""}, saldo $ ${fmt(o.saldoUYU, 2)})`;
     const deuda = ci.res.filter(o => o.estado === "A pagar" || o.estado === "VENCIDO");
-    const cerrados = ci.res.filter(o => o.estado === "Pagado"); const ult = cerrados[cerrados.length - 1]; const cur = ci.res.find(o => o.estado === "En curso") || ci.actual;
+    const cerrados = ci.res.filter(o => o.estado === "Pagado"); const ult = cerrados[cerrados.length - 1]; const cur = ci.res.find(o => o.estado === "En curso") || ci.actual; const cerr = ci.res.filter(o => o.estado === "Cerrado");
     return `- ${ci.card.nombre}: cierra día ${ci.card.cierre}, vence día ${ci.card.vence}. ` +
       (deuda.length ? `DEUDA PENDIENTE (resumen ya cerrado sin pagar): ${deuda.map(o => o.estado + " " + det(o)).join("; ")}. ` : `Sin deuda pendiente: todo resumen cerrado está pagado${ult ? " (último pagado: " + ult.mes + ")" : ""}. `) +
+      (cerr.length ? `Resumen CERRADO que todavía no corresponde pagar (se paga a partir del 1 del mes en que vence; NO lo menciones como pendiente): ${cerr.map(det).join("; ")}. ` : "") +
       `Resumen EN CURSO (todavía NO cerró, no es deuda ni está atrasado; se paga recién cuando venza): ${det(cur)}.`;
   }).join("\n");
   return contextoIA() + `
@@ -1585,7 +1587,7 @@ function firmaHoy() {
   try {
     const d = S.data, R = S.R; const k = R.months.includes(todayKey()) ? todayKey() : R.months[0]; const p = R.proy.find(x => x.mes === k) || {};
     const est = R.cards.map(ci => ci.card.nombre + ":" + ci.res.filter(o => o.estado === "VENCIDO" || o.estado === "A pagar").map(o => o.mes + "/" + Math.round(o.saldoUYU) + "/" + Math.round(o.saldoUSD || 0)).join(",")).join("|");
-    const s = ["v2", Math.round(p.J || 0), est, avisosTarjetasHoy(d, R).map(a => a.txt).join("|"), d.movimientos.length, JSON.stringify(d.tarjetas.map(t => t.pagos || {}))].join("#");
+    const s = ["v3", Math.round(p.J || 0), est, avisosTarjetasHoy(d, R).map(a => a.txt).join("|"), d.movimientos.length, JSON.stringify(d.tarjetas.map(t => t.pagos || {}))].join("#");
     let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return String(h);
   } catch (e) { return "x"; }
 }
@@ -1983,7 +1985,7 @@ function avisosTarjetasHoy(d, R) {
       const dv = Math.round((o.vence - t0) / DAY);
       const saldo = o.saldoUYU + o.saldoUSD * (+d.config.tc || 0);
       if (saldo > 1 && dv < 0 && dv >= -40) out.push({ tipo: "rojo", prio: 1, txt: `La ${c.nombre} venció el ${fmtTs(o.vence)} y figura sin pagar ${money(saldo)}. Si ya la pagaste, anotá el pago (en Tarjetas o diciéndoselo al asesor).` });
-      else if (saldo > 1 && dv >= 0 && dv <= 5) out.push({ tipo: "naranja", prio: 2, txt: `La ${c.nombre} vence ${dv === 0 ? "HOY" : dv === 1 ? "mañana" : "en " + dv + " días (" + fmtTs(o.vence) + ")"} y faltan ${money(saldo)} por pagar.` });
+      else if (saldo > 1 && dv >= 0 && dv <= 3 && t0 >= (o.desde || 0)) out.push({ tipo: "naranja", prio: 2, txt: `La ${c.nombre} vence ${dv === 0 ? "HOY" : dv === 1 ? "mañana" : "en " + dv + " días (" + fmtTs(o.vence) + ")"} y faltan ${money(saldo)} por pagar.` });
       const dc = Math.round((o.cierre - t0) / DAY);
       if (dc >= 0 && dc <= 3) out.push({ tipo: "info", prio: 4, txt: `La ${c.nombre} cierra ${dc === 0 ? "hoy" : dc === 1 ? "mañana" : "en " + dc + " días"}: lo que compres después entra en el resumen de ${E.mesLargo(E.addM(o.mes, 1))} (más tiempo para pagar).` });
     });
