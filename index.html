@@ -816,7 +816,7 @@ function vPanel() {
     <div class="card kpi ${p.J < 0 ? "k-red" : "k-blue"}"><div class="lab">👛 Te queda</div><div class="val ${p.J < 0 ? "neg" : "pos"}">${money(p.J)}</div><div class="foot">Acumulado desde ${E.mesCorto(R.months[0])}: <b class="${p.K < 0 ? "neg" : "pos"}">${money(p.K)}</b></div></div>
     <div class="card kpi k-violet"><div class="lab">🚦 Semáforo</div><div class="sema ${p.L.split(" ")[0]}">${p.L}</div><div class="foot">${A.worst && A.worst.J < 0 ? "Próximo mes difícil: " + E.mesLargo(A.worst.mes) : "Próximos 6 meses sin rojo ✔"}</div></div>
   </div>
-  ${cardExtra()}
+  ${cardExtra()}<div id="pushNudge"></div>
   <div style="margin-top:16px">${cardHoy()}</div>${cardSemana()}
   <div class="grid g21" style="margin-top:16px">
     <div class="card"><h3>🧭 Consejos del mes <span class="hint"><a href="#" data-go="asesor">Ver el asesor completo →</a></span></h3>
@@ -1157,6 +1157,7 @@ function vConfig() {
     <div class="small" style="margin-bottom:12px">Estado: <b id="fileState2">${fileStateHTML()}</b></div>
     ${S.user ? `<div class="small" style="margin-bottom:12px">Tus datos están en la nube, compartidos con tu familia. Todos los días se guarda una copia de respaldo automática.</div>
       <div class="chips"><button class="btn" id="expJ">⬇️ Exportar copia</button><button class="btn" id="impJ">⬆️ Importar copia</button><button class="btn danger" onclick="cerrarSesion()">Cerrar sesión</button><button class="btn danger" id="resetD" style="display:none"></button></div>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="small" style="margin-bottom:6px"><b>🔔 Avisos en el celular</b></div><div id="avisosCfg"><span class="dots">Revisando</span></div></div>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="small" style="margin-bottom:6px"><b>🔑 Cambiar mi contraseña</b> <span class="mut">(${esc(S.user.email)})</span></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="pwd" style="flex:1;min-width:200px"><input id="cfgPw" type="password" autocomplete="new-password" placeholder="Contraseña nueva" style="border:1.5px solid var(--line);border-radius:10px;padding:10px"><button type="button" class="ojo" onclick="const i=document.getElementById('cfgPw');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁️':'🙈'">👁️</button></div><button class="btn blue" onclick="cambiarPassword()">Guardar</button></div><div id="cfgPwMsg" class="small" style="margin-top:6px"></div></div>`
     : S.server ? `<div class="small" style="margin-bottom:12px">Tus datos se guardan solos en <b>finanzas-datos.json</b>, en la misma carpeta de la app, y cada día queda una copia en la carpeta <b>copias</b>. Si llevás la carpeta a otra PC o a un disco externo, los datos van con ella.</div>
@@ -2430,6 +2431,45 @@ async function cambiarPassword() {
   $("#cfgPw").value = ""; m.style.color = "#166534"; m.textContent = "✔ Contraseña cambiada. La próxima vez entrá con la nueva.";
 }
 
+// ---------- Avisos push en el celular
+const FN_AVISOS = CLOUD.url + "/functions/v1/avisos";
+const b64u8 = (s) => { const p = "=".repeat((4 - s.length % 4) % 4); const b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from([...b].map(ch => ch.charCodeAt(0))); };
+const esIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const esInstalada = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+async function estadoAvisos() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return esIOS() && !esInstalada() ? "ios-instalar" : "no-soporta";
+  if (Notification.permission === "denied") return "bloqueado";
+  try { const reg = await navigator.serviceWorker.ready; const s = await reg.pushManager.getSubscription(); return s ? "activo" : "inactivo"; } catch (e) { return "inactivo"; }
+}
+async function activarAvisos() {
+  const st = await estadoAvisos(); if (st === "ios-instalar") { toast("En iPhone: primero agregá la app a la pantalla de inicio y abrila desde ahí"); return; }
+  if (st === "no-soporta") { toast("Este navegador no permite avisos"); return; }
+  const perm = await Notification.requestPermission(); if (perm !== "granted") { toast("No diste permiso para los avisos"); renderAvisosCfg(); return; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const k = await (await fetch(FN_AVISOS, { method: "POST", headers: { "Content-Type": "application/json", apikey: CLOUD.key }, body: '{"tipo":"clave"}' })).json();
+    if (!k.publicKey) throw new Error(k.error || "sin clave");
+    let sub = await reg.pushManager.getSubscription(); if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u8(k.publicKey) });
+    const j = sub.toJSON();
+    const r = await sb.from("push_subs").upsert({ endpoint: j.endpoint, hogar_id: S.hogar, user_id: S.user.id, nombre: S.user.nombre, p256dh: j.keys.p256dh, auth: j.keys.auth, prefs: { avisos: true, cargas: true } }); if (r.error) throw r.error;
+    await probarAvisos(); toast("🔔 Avisos activados en este celular");
+  } catch (e) { toast("No se pudieron activar: " + e.message); }
+  renderAvisosCfg();
+}
+async function probarAvisos() {
+  const { data } = await sb.auth.getSession();
+  await fetch(FN_AVISOS, { method: "POST", headers: { "Content-Type": "application/json", apikey: CLOUD.key, Authorization: "Bearer " + data.session.access_token }, body: '{"tipo":"prueba"}' });
+}
+async function desactivarAvisos() {
+  try { const reg = await navigator.serviceWorker.ready; const s = await reg.pushManager.getSubscription(); if (s) { await sb.from("push_subs").delete().eq("endpoint", s.endpoint); await s.unsubscribe(); } toast("Avisos desactivados en este celular"); } catch (e) { toast(e.message); }
+  renderAvisosCfg();
+}
+async function renderAvisosCfg() {
+  const el = $("#avisosCfg"); if (!el) return; const st = await estadoAvisos();
+  const txt = { activo: "✅ Activados en este celular. Te avisa: tarjetas que vencen en 3 días o menos, cierres, lo que cargue el otro y un resumen los lunes.", inactivo: "Todavía no están activados en este celular.", bloqueado: "Bloqueaste los avisos para esta app. Habilitalos en los ajustes del navegador (Notificaciones) y volvé acá.", "ios-instalar": "En iPhone los avisos funcionan solo con la app agregada a la pantalla de inicio: en Safari tocá Compartir → «Agregar a inicio» y abrila desde ese ícono.", "no-soporta": "Este navegador no permite avisos." }[st];
+  el.innerHTML = `<div class="small" style="margin-bottom:8px">${txt}</div>${st === "activo" ? `<button class="btn sm" onclick="probarAvisos().then(()=>toast('Te mandé un aviso de prueba'))">Mandar uno de prueba</button> <button class="btn sm danger" onclick="desactivarAvisos()">Desactivar</button>` : st === "inactivo" ? `<button class="btn blue" onclick="activarAvisos()">🔔 Activar avisos en este celular</button>` : ""}`;
+}
+
 // ===================== EXTRAS: plata extra, intereses, topes, gastos hormiga, resumen semanal =====================
 const TOPES_INI = { "Delivery y comida afuera": 3000, "Salidas y ocio": 2500, "Ropa y calzado": 3500, "Compras online": 2500, "Hogar y ferretería": 2000 };
 function migrateV3(d) {
@@ -2485,7 +2525,14 @@ function cardExtra() {
     <div class="xrow"><div><b>Libre para el mes</b><div class="tiny mut">para gustos o imprevistos</div></div><span id="xLibre" style="font-weight:700">${money(info.sobra - pl.items.reduce((s, x) => s + x.monto, 0))}</span></div>
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm pri" id="xAplicar">✔ Aplicar plan</button><span class="tiny mut" style="align-self:center">Podés cambiar los montos antes de aplicar.</span></div></div>`;
 }
+async function nudgePush() {
+  const el = $("#pushNudge"); if (!el || !S.user || typeof estadoAvisos !== "function") return;
+  let no = false; try { no = localStorage.getItem("fh_push_nudge") === "no"; } catch (e) { } if (no) return;
+  const st = await estadoAvisos(); if (st !== "inactivo" && st !== "ios-instalar") return;
+  el.innerHTML = `<div class="banner" style="margin-top:16px;justify-content:space-between"><span>🔔 ${st === "ios-instalar" ? "Para recibir avisos en el iPhone, agregá la app a la pantalla de inicio (Compartir → «Agregar a inicio») y abrila desde ahí." : "¿Querés que te avise cuando una tarjeta está por vencer o cuando el otro carga un gasto?"}</span><span style="display:flex;gap:6px">${st === "inactivo" ? `<button class="btn sm blue" onclick="activarAvisos().then(()=>{const e=document.getElementById('pushNudge');if(e)e.innerHTML=''})">Activar avisos</button>` : ""}<button class="btn sm" onclick="try{localStorage.setItem('fh_push_nudge','no')}catch(e){};document.getElementById('pushNudge').innerHTML=''">Ahora no</button></span></div>`;
+}
 function bindExtra(root) {
+  nudgePush();
   const ap = $("#xAplicar");
   if (ap) {
     const recalc = () => { const pl = S._plan; const used = [...root.querySelectorAll("[data-xi]")].reduce((s, i) => s + (+i.value || 0), 0); $("#xLibre").textContent = money(pl.info.sobra - used); };
@@ -2644,7 +2691,7 @@ async function genSemana() {
 const VIEWS = {
   panel: [vPanel, bindExtra], cargar: [vCargar, bindCargar], asesor: [() => vAsesor() + interesesHTML(), bindAsesor], tarjetas: [vTarjetas, bindTarjetas], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [vIngresos, bindIngresos], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, bindAhorro],
-  pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); }], permitir: [vPermitir, bindPermitir], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + h.slice(i) : h + hormigaHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
+  pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [vPermitir, bindPermitir], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + h.slice(i) : h + hormigaHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
 function shell() {
   const pend = (S.data.pendientes || []).filter(p => !p.hecho).length;
