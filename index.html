@@ -216,7 +216,8 @@ svg text{font-family:inherit}
   .bnav button.add .i{background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;margin:-18px auto 2px;box-shadow:0 6px 16px rgba(22,163,74,.45);font-size:24px}
   .banner{flex-wrap:wrap}
   .hoy .hoytx{font-size:14px}
-  html,body{overflow-x:hidden;max-width:100vw}
+  html,body{height:auto;min-height:100%;overflow:visible;max-width:none;-webkit-text-size-adjust:100%}
+  .app{overflow-x:clip;max-width:100vw}
   .main{max-width:100vw;min-width:0}.sec>.bd{overflow-x:auto}.sec>.hd{font-size:14px}
   .addcard .preview{font-size:13px}
   .addcard > div[style*="margin-top:14px"]{flex-direction:column;align-items:stretch!important}
