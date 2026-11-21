@@ -1336,6 +1336,10 @@ function ctxPantalla() {
   if (v === "tarjetas") { const ci = S.R.cards[S.cardTab]; x += ` Está mirando la tarjeta ${ci.card.nombre} (resumen actual ${E.mesLargo(ci.actual.mes)}, falta pagar ${money(ci.falta)}, vence ${fmtTs(ci.actual.vence)}).`; }
   return x;
 }
+function ultMovs() {
+  const ms = S.data.movimientos; ms.forEach(m => { if (!m.id) m.id = uuid(); });
+  return ms.slice(0, 40).map(m => `- id=${m.id} | ${m.fecha} | ${m.tipo || "Gasto"} | ${m.descripcion || ""} | ${m.moneda || "UYU"} ${m.monto} | ${m.medio || ""}${m.cuotas > 1 ? " en " + m.cuotas + " cuotas" : ""} | ${m.categoria || ""} | ${m.persona || ""}${m.por ? " | cargó " + m.por : ""}`).join("\n") || "- (ninguno)";
+}
 function contextoChat() {
   const d = S.data;
   const cards = S.R.cards.map(ci => {
@@ -1366,6 +1370,9 @@ ${puntosInfo(d).map(x => `- ${x.p.id} = ${x.p.nombre} (${nomTarj(x.p.tarjetas)})
 ${recomendarTarjeta(d, S.R, { monto: 1, moneda: "UYU", fecha: todayISO() }).map(x => `- ${x.c.nombre}: disponible $ ${fmt(x.ci.disponible)} (usado ${Math.round(x.ci.pct * 100)}%), si compra hoy entra en el resumen de ${x.k} y vence ${x.vence ? x.vence.toISOString().slice(0, 10) : "?"}`).join("\n")}
 Para "¿con qué tarjeta compro X?": descartá las que no tienen disponible, priorizá descuento del día que aplique, después más días para pagar y puntos; evitá las que quedan arriba del 80% de uso. Para compras en dólares recordá pagar ese resumen en dólares.
 
+## Últimos movimientos cargados (para borrar o corregir; usá el id exacto)
+${ultMovs()}
+
 ## Listas válidas
 Categorías: ${d.config.categorias.join(", ")}
 Personas: ${d.config.personas.join(", ")}
@@ -1374,7 +1381,7 @@ Tarjetas: ${d.tarjetas.map(t => t.nombre + (t.ultimos4 ? " (termina en " + t.ult
 
 ## CÓMO RESPONDER
 Respondé SIEMPRE con un único objeto JSON: {"respuesta": "texto para mostrar (podés usar **negrita** y viñetas con -)", "acciones": [ ... ]}
-Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar o crear algo, o cuando manda un ticket, factura o resumen):
+Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar, crear, borrar o corregir algo, o cuando manda un ticket, factura o resumen):
 1) {"tipo":"movimiento","fecha":"YYYY-MM-DD","tipoMov":"Gasto|Sueldo|Aguinaldo|SRV|Licencia|Ingreso extra","descripcion":"","categoria":"","persona":"","moneda":"UYU|USD","monto":0,"medio":"","cuotas":1}
    - Gastos nuevos y tickets. Si es con tarjeta, medio = nombre exacto de la tarjeta y cuotas (1 si no dice). Si es en efectivo o débito, medio = Efectivo o la cuenta, y cuotas = null.
    - Ingresos (sueldo cobrado, aguinaldo, etc.): tipoMov correspondiente, medio = la cuenta donde entra.
@@ -1385,6 +1392,9 @@ Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar 
 4) {"tipo":"meta","nombre":"","moneda":"UYU|USD","objetivo":0,"fecha":"YYYY-MM-DD","ahorrado":0}
 5) {"tipo":"canje_puntos","programa":"soy|brou|bbva|pronto|pass","puntos":0,"descripcion":""}  — cuando dice que usó/canjeó puntos.
 6) {"tipo":"puntos_saldo","programa":"soy|brou|bbva|pronto|pass","saldo":0}  — cuando dice cuántos puntos tiene hoy según el banco.
+7) {"tipo":"borrar_movimiento","id":"","descripcion":"","monto":0,"moneda":"UYU","fecha":"YYYY-MM-DD"}  — cuando pide borrar, eliminar, sacar o deshacer algo que ya está cargado (por ejemplo "borrá el árbol de navidad", "me equivoqué, sacalo"). Buscalo en "Últimos movimientos cargados" y usá su id EXACTO; copiá descripción, monto, moneda y fecha para que se vea qué se borra. Si hay varios que coinciden y no queda claro cuál, preguntá cuál (o proponé borrar solo el más reciente si dice "el último"). Si no lo encontrás, decilo.
+8) {"tipo":"editar_movimiento","id":"","descripcion":"","cambios":{"campo":"valor nuevo"}}  — cuando pide corregir algo ya cargado (monto, fecha, medio, cuotas, categoría, persona, descripción). Campos válidos en "cambios": fecha, descripcion, categoria, persona, moneda, monto, medio, cuotas.
+   - Para borrar o corregir NUNCA digas que ya lo hiciste ni que "no lo vas a tener en cuenta": la app lo hace cuando el usuario toca el botón de confirmar. En "respuesta" decí qué vas a borrar o cambiar y pedí que confirme.
 Reglas: fecha por defecto hoy (${todayISO()}); moneda por defecto UYU; persona por defecto ${S.user && d.config.personas.includes(S.user.nombre) ? S.user.nombre : d.config.personas[0]} (quien está usando la app). Usá nombres EXACTOS de las listas. Si falta un dato clave (monto o con qué pagó), NO inventes: preguntalo en "respuesta" y dejá "acciones" vacío. En un resumen de tarjeta, cargá cada consumo del período como "movimiento" (medio = esa tarjeta, cuotas = 1 salvo que diga otra cosa) y las cuotas de compras viejas como "compra_tarjeta"; ignorá pagos, saldos anteriores e intereses salvo que te lo pidan. En "respuesta" resumí brevemente qué vas a cargar y pedí que confirme. Si no hay nada para cargar, "acciones": [].
 
 ## FOTOS DE TICKETS O FACTURAS
@@ -1410,6 +1420,8 @@ function actSummary(a) {
   if (a.tipo === "pago_tarjeta") return `✅ Pago de <b>${esc(a.tarjeta)}</b> · ${mo}${fmt(+a.monto || 0, 2)} · <span class="mut">resumen ${a.resumen ? E.mesLargo(a.resumen) : "?"}</span>`;
   if (a.tipo === "canje_puntos") return `🎁 Canje de <b>${fmt(+a.puntos || 0)}</b> puntos ${esc(((S.data.programas || []).find(p => p.id === a.programa) || { nombre: a.programa }).nombre)}${a.descripcion ? " · " + esc(a.descripcion) : ""}`;
   if (a.tipo === "puntos_saldo") return `⭐ Saldo de puntos ${esc(((S.data.programas || []).find(p => p.id === a.programa) || { nombre: a.programa }).nombre)}: <b>${fmt(+a.saldo || 0)}</b>`;
+  if (a.tipo === "borrar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const x = m || a; return `🗑 Borrar <b>${esc(x.descripcion || "?")}</b> · ${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}${m && m.medio ? " · " + esc(m.medio) : ""} · <span class="mut">${x.fecha ? fmtDate(x.fecha) : ""}</span>${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
+  if (a.tipo === "editar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const ch = Object.entries(a.cambios || {}).map(([k, v]) => `${esc(k)}: <s class="mut">${esc(m ? String(m[k] ?? "—") : "?")}</s> → <b>${esc(String(v))}</b>`).join(", "); return `✏️ Corregir <b>${esc(m ? m.descripcion : a.descripcion || "?")}</b> · ${ch}${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
   if (a.tipo === "meta") return `🎯 Meta <b>${esc(a.nombre)}</b> · ${mo}${fmt(+a.objetivo || 0)}${a.fecha ? " para " + fmtDate(a.fecha) : ""}`;
   return esc(JSON.stringify(a));
 }
@@ -1449,8 +1461,8 @@ function renderChat() {
       acts = `<div class="acts">${m.acciones.map((a, j) => `<div class="act ${a._hecho ? "done" : a._desc ? "desc" : ""}">
         ${a._hecho ? "✔" : a._desc ? "✕" : `<input type="checkbox" data-ack="${i}:${j}" ${a._sel !== false ? "checked" : ""}>`}
         <div class="atx">${actSummary(a)}${a._dup && !a._hecho ? ` <span class="pill amber">¿ya cargado?</span>` : ""}</div>
-        ${!a._hecho && !a._desc ? `<button class="icon-btn" data-aed="${i}:${j}" title="Editar">✏️</button>` : ""}</div>${preguntaFalta(a, i, j)}`).join("")}
-        ${pend.length ? (() => { const sel = pend.filter(a => a._sel !== false); const falt = sel.some(a => faltaDe(a)); return `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm pri" data-aok="${i}" ${falt ? "disabled title=\"Contestá la pregunta de arriba\"" : ""}>➕ Agregar${sel.length > 1 ? " (" + sel.length + ")" : ""}</button><button class="btn sm" data-ano="${i}">Descartar</button></div>`; })() : ""}</div>`;
+        ${!a._hecho && !a._desc && ACT_F[a.tipo] ? `<button class="icon-btn" data-aed="${i}:${j}" title="Editar">✏️</button>` : ""}</div>${preguntaFalta(a, i, j)}`).join("")}
+        ${pend.length ? (() => { const sel = pend.filter(a => a._sel !== false); const falt = sel.some(a => faltaDe(a)); return `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm pri" data-aok="${i}" ${falt ? "disabled title=\"Contestá la pregunta de arriba\"" : ""}>${sel.every(a => a.tipo === "borrar_movimiento") ? "🗑 Borrar" : sel.every(a => a.tipo === "editar_movimiento") ? "✔ Corregir" : sel.some(a => /^(borrar|editar)_/.test(a.tipo)) ? "✔ Confirmar" : "➕ Agregar"}${sel.length > 1 ? " (" + sel.length + ")" : ""}</button><button class="btn sm" data-ano="${i}">Descartar</button></div>`; })() : ""}</div>`;
     }
     return `<div class="bub ai">${mdLite(m.text)}${acts}</div>`;
   }).join("");
@@ -1544,6 +1556,12 @@ function aplicarAccion(a) {
   if (a.tipo === "pago_tarjeta") { const c = d.tarjetas.find(t => t.nombre === a.tarjeta); if (!c || !a.resumen) return false; const p = c.pagos[a.resumen] = c.pagos[a.resumen] || { uyu: 0, usd: 0 }; if (a.moneda === "USD") p.usd = (+p.usd || 0) + +a.monto; else p.uyu = (+p.uyu || 0) + +a.monto; return true; }
   if (a.tipo === "canje_puntos") { if (!(d.programas || []).some(p => p.id === a.programa)) return false; d.canjes = d.canjes || []; d.canjes.push({ programa: a.programa, puntos: +a.puntos || 0, descripcion: a.descripcion || "", fecha: todayISO() }); return true; }
   if (a.tipo === "puntos_saldo") { const p = (d.programas || []).find(p => p.id === a.programa); if (!p) return false; p.saldo = +a.saldo || 0; p.fechaBase = todayISO(); return true; }
+  if (a.tipo === "borrar_movimiento") { const i = d.movimientos.findIndex(x => x.id === a.id); if (i < 0) return false; d.movimientos.splice(i, 1); return true; }
+  if (a.tipo === "editar_movimiento") {
+    const m = d.movimientos.find(x => x.id === a.id); if (!m) return false; const ok = ["fecha", "descripcion", "categoria", "persona", "moneda", "monto", "medio", "cuotas"];
+    Object.entries(a.cambios || {}).forEach(([k, v]) => { if (!ok.includes(k)) return; m[k] = (k === "monto" || k === "cuotas") ? (+v || null) : v; });
+    if (!L.isCard(m.medio)) m.cuotas = null; else if (!(+m.cuotas > 0)) m.cuotas = 1; return true;
+  }
   if (a.tipo === "meta") { d.ahorro.push({ nombre: a.nombre, moneda: a.moneda || "UYU", objetivo: +a.objetivo || null, ahorrado: +a.ahorrado || 0, fecha: a.fecha || null }); return true; }
   return false;
 }
@@ -1551,8 +1569,9 @@ function confirmarAcciones(m) {
   let n = 0, mal = 0;
   if (m.acciones.some(a => !a._hecho && !a._desc && a._sel !== false && faltaDe(a))) { toast("Contestá la pregunta antes de agregar"); return; }
   m.acciones.forEach(a => { if (a._hecho || a._desc) return; if (a._sel === false) { a._desc = true; return; } if (aplicarAccion(a)) { a._hecho = true; n++; } else mal++; });
-  commit(n ? `✔ Cargado: ${n} ${n === 1 ? "cosa" : "cosas"}` : null);
-  if (mal) toast(`${mal} no se pudo cargar (revisá la tarjeta o el resumen)`);
+  const soloBorra = m.acciones.every(a => a.tipo === "borrar_movimiento");
+  commit(n ? (soloBorra ? `🗑 Borrado: ${n} ${n === 1 ? "movimiento" : "movimientos"}` : `✔ Listo: ${n} ${n === 1 ? "cambio" : "cambios"}`) : null);
+  if (mal) toast(`${mal} no se pudo hacer (no encontré el movimiento, la tarjeta o el resumen)`);
   renderChat();
 }
 
