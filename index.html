@@ -1448,6 +1448,9 @@ ${costumbresTexto()}
 ## Datos para gráficos
 ${datosGraficos()}
 
+## Débitos automáticos (día de cobro de cada gasto fijo, aprendido de lo cargado)
+${typeof debitosTexto === "function" ? debitosTexto() : "-"}
+
 ## Deudas (calculado por la app)
 ${typeof contextoDeudas === "function" ? contextoDeudas() : "-"}
 
@@ -1478,6 +1481,8 @@ Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar,
 7) {"tipo":"borrar_movimiento","id":"","descripcion":"","monto":0,"moneda":"UYU","fecha":"YYYY-MM-DD"}  — cuando pide borrar, eliminar, sacar o deshacer algo que ya está cargado (por ejemplo "borrá el árbol de navidad", "me equivoqué, sacalo"). Buscalo en "Últimos movimientos cargados" y usá su id EXACTO; copiá descripción, monto, moneda y fecha para que se vea qué se borra. Si hay varios que coinciden y no queda claro cuál, preguntá cuál (o proponé borrar solo el más reciente si dice "el último"). Si no lo encontrás, decilo.
 8) {"tipo":"editar_movimiento","id":"","descripcion":"","cambios":{"campo":"valor nuevo"}}  — cuando pide corregir algo ya cargado (monto, fecha, medio, cuotas, categoría, persona, descripción). Campos válidos en "cambios": fecha, descripcion, categoria, persona, moneda, monto, medio, cuotas.
 9) {"tipo":"ajustar_precio","lista":"fijos|ingresos","nombre":"","montoNuevo":0,"moneda":"UYU|USD","desde":"YYYY-MM"}  — cuando dice que algo fijo aumentó o bajó de precio, o que le cambió el sueldo (por ejemplo "UTE aumentó a 2.400", "el colegio sube a 19.000 desde marzo", "me aumentaron el sueldo a 65.000"). Usá el nombre EXACTO de "Gastos fijos e ingresos guardados". "desde" = mes desde el que rige el precio nuevo; si no lo dice, usá el mes actual (${todayKey()}). Los meses anteriores quedan con el precio viejo. Si no está claro cuál es, preguntá.
+10) {"tipo":"fijar_dia","nombre":"","dia":0}  — cuando dice qué día se le cobra o debita algo fijo ("Claude se cobra el 21", "Netflix me lo debitan el 19"). Usá el nombre de "Gastos fijos e ingresos guardados". La app lo guarda y lo usa en el calendario.
+FECHAS DE DÉBITO: si preguntan cuándo se cobra o debita algo (Netflix, Claude, UTE…), respondé con "Débitos automáticos": el día, la próxima fecha, el monto y en qué resumen de tarjeta entra y cuándo se paga. Si dice "DÍA DESCONOCIDO", decilo y pedí que te digan el día (y ofrecé guardarlo con fijar_dia). Si el día es "aprendido de 1 cargo", aclaralo como aproximado.
    - Para borrar o corregir NUNCA digas que ya lo hiciste ni que "no lo vas a tener en cuenta": la app lo hace cuando el usuario toca el botón de confirmar. En "respuesta" decí qué vas a borrar o cambiar y pedí que confirme.
 Reglas: fecha por defecto hoy (${todayISO()}); moneda por defecto UYU; persona por defecto ${S.user && d.config.personas.includes(S.user.nombre) ? S.user.nombre : d.config.personas[0]} (quien está usando la app). Usá nombres EXACTOS de las listas. Si falta un dato clave (monto o con qué pagó), NO inventes: preguntalo en "respuesta" y dejá "acciones" vacío. En un resumen de tarjeta, cargá cada consumo del período como "movimiento" (medio = esa tarjeta, cuotas = 1 salvo que diga otra cosa) y las cuotas de compras viejas como "compra_tarjeta"; ignorá pagos, saldos anteriores e intereses salvo que te lo pidan. En "respuesta" resumí brevemente qué vas a cargar y pedí que confirme. Si no hay nada para cargar, "acciones": [].
 
@@ -1514,6 +1519,7 @@ function actSummary(a) {
   if (a.tipo === "borrar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const x = m || a; return `🗑 Borrar <b>${esc(x.descripcion || "?")}</b> · ${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}${m && m.medio ? " · " + esc(m.medio) : ""} · <span class="mut">${x.fecha ? fmtDate(x.fecha) : ""}</span>${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
   if (a.tipo === "editar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const ch = Object.entries(a.cambios || {}).map(([k, v]) => `${esc(k)}: <s class="mut">${esc(m ? String(m[k] ?? "—") : "?")}</s> → <b>${esc(String(v))}</b>`).join(", "); return `✏️ Corregir <b>${esc(m ? m.descripcion : a.descripcion || "?")}</b> · ${ch}${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
   if (a.tipo === "ajustar_precio") { const x = buscaRecurrente(a); const mo = (a.moneda || (x && x.moneda)) === "USD" ? "U$S " : "$ "; return `📈 <b>${esc(x ? x.nombre : a.nombre)}</b> · ${x ? `<s class="mut">${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}</s> → ` : ""}<b>${mo}${fmt(+a.montoNuevo || 0, 2)}</b> · <span class="mut">desde ${a.desde ? E.mesLargo(a.desde) : E.mesLargo(todayKey())}</span>${x ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
+  if (a.tipo === "fijar_dia" && typeof descFijarDia === "function") return descFijarDia(a);
   if (a.tipo === "meta") return `🎯 Meta <b>${esc(a.nombre)}</b> · ${mo}${fmt(+a.objetivo || 0)}${a.fecha ? " para " + fmtDate(a.fecha) : ""}`;
   return esc(JSON.stringify(a));
 }
@@ -1554,7 +1560,7 @@ function renderChat() {
         ${a._hecho ? "✔" : a._desc ? "✕" : `<input type="checkbox" data-ack="${i}:${j}" ${a._sel !== false ? "checked" : ""}>`}
         <div class="atx">${actSummary(a)}${a._dup && !a._hecho ? ` <span class="pill amber">¿ya cargado?</span>` : ""}</div>
         ${!a._hecho && !a._desc && ACT_F[a.tipo] ? `<button class="icon-btn" data-aed="${i}:${j}" title="Editar">✏️</button>` : ""}</div>${preguntaFalta(a, i, j)}`).join("")}
-        ${pend.length ? (() => { const sel = pend.filter(a => a._sel !== false); const falt = sel.some(a => faltaDe(a)); return `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm pri" data-aok="${i}" ${falt ? "disabled title=\"Contestá la pregunta de arriba\"" : ""}>${sel.every(a => a.tipo === "borrar_movimiento") ? "🗑 Borrar" : sel.every(a => a.tipo === "editar_movimiento") ? "✔ Corregir" : sel.every(a => a.tipo === "ajustar_precio") ? "✔ Actualizar precio" : sel.some(a => /^(borrar|editar|ajustar)_/.test(a.tipo)) ? "✔ Confirmar" : "➕ Agregar"}${sel.length > 1 ? " (" + sel.length + ")" : ""}</button><button class="btn sm" data-ano="${i}">Descartar</button></div>`; })() : ""}</div>`;
+        ${pend.length ? (() => { const sel = pend.filter(a => a._sel !== false); const falt = sel.some(a => faltaDe(a)); return `<div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm pri" data-aok="${i}" ${falt ? "disabled title=\"Contestá la pregunta de arriba\"" : ""}>${sel.every(a => a.tipo === "borrar_movimiento") ? "🗑 Borrar" : sel.every(a => a.tipo === "editar_movimiento") ? "✔ Corregir" : sel.every(a => a.tipo === "ajustar_precio") ? "✔ Actualizar precio" : sel.some(a => /^(borrar|editar|ajustar|fijar)_/.test(a.tipo)) ? "✔ Confirmar" : "➕ Agregar"}${sel.length > 1 ? " (" + sel.length + ")" : ""}</button><button class="btn sm" data-ano="${i}">Descartar</button></div>`; })() : ""}</div>`;
     }
     return `<div class="bub ai">${mdLite(m.text)}${m.grafico && typeof graficoHTML === "function" ? graficoHTML(m.grafico) : ""}${acts}</div>`;
   }).join("");
@@ -1670,6 +1676,7 @@ function aplicarAccion(a) {
     Object.entries(a.cambios || {}).forEach(([k, v]) => { if (!ok.includes(k)) return; m[k] = (k === "monto" || k === "cuotas") ? (+v || null) : v; });
     if (!L.isCard(m.medio)) m.cuotas = null; else if (!(+m.cuotas > 0)) m.cuotas = 1; return true;
   }
+  if (a.tipo === "fijar_dia" && typeof aplicarFijarDia === "function") return aplicarFijarDia(a);
   if (a.tipo === "meta") { d.ahorro.push({ nombre: a.nombre, moneda: a.moneda || "UYU", objetivo: +a.objetivo || null, ahorrado: +a.ahorrado || 0, fecha: a.fecha || null }); return true; }
   return false;
 }
@@ -3016,9 +3023,98 @@ function ultimosPanelHTML() {
     ${L.map((g, i) => `${i === 0 || L[i - 1].fecha !== g.fecha ? `<div class="tiny mut" style="margin-top:8px;font-weight:700">${diaLabel(g.fecha)}</div>` : ""}${itemGastoHTML(g, false)}`).join("")}</div>`;
 }
 
+// ===================== DÉBITOS AUTOMÁTICOS: qué día se cobra cada cosa (aprendido de lo cargado)
+const PAL_GEN = /^(suscripcion|suscripción|plan|familiar|cargos?|seguro|cuota|mensual|tarjeta|envio|envío|estado|cuenta|gastos|promedio|presupuesto|del|de|la|el|los|las|con|por|para|pro|iva|adm|auto|casa|celular|telefono|teléfono|fijo|servicio|cristhian|melyna|mateo)$/i;
+const sinTilde = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function clavesDe(nombre) { return sinTilde(nombre).replace(/\(.*?\)/g, " ").split(/[^a-z0-9ñ]+/).filter(w => w.length >= 4 && !PAL_GEN.test(w)); }
+const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// todos los cargos con fecha: movimientos + compras de resúmenes
+function cargosConFecha() {
+  const out = [];
+  S.data.movimientos.forEach(m => { if ((m.tipo || "Gasto") === "Gasto" && m.fecha) out.push({ fecha: m.fecha, desc: m.descripcion || "", medio: m.medio || "", moneda: m.moneda || "UYU", monto: +m.monto || 0 }); });
+  S.data.tarjetas.forEach(t => (t.compras || []).forEach(c => { if (c.fecha && (+c.cuotas || 1) <= 1) out.push({ fecha: c.fecha, desc: c.comercio || "", medio: t.nombre, moneda: c.moneda || "UYU", monto: +c.total || +c.valorCuota || 0 }); }));
+  return out;
+}
+
+// cuándo cae en el resumen de una tarjeta
+function resumenDeCargo(medio, fechaISO) {
+  const t = S.data.tarjetas.find(x => x.nombre === medio); if (!t || !t.cierre) return null;
+  const [y, m, d] = fechaISO.split("-").map(Number);
+  const cierreMes = d <= t.cierre ? new Date(y, m - 1, 1) : new Date(y, m, 1);
+  const lastC = new Date(cierreMes.getFullYear(), cierreMes.getMonth() + 1, 0).getDate();
+  const cierre = new Date(cierreMes.getFullYear(), cierreMes.getMonth(), Math.min(t.cierre, lastC));
+  const vMes = new Date(cierre.getFullYear(), cierre.getMonth() + (t.vence <= t.cierre ? 1 : 0), 1);
+  const lastV = new Date(vMes.getFullYear(), vMes.getMonth() + 1, 0).getDate();
+  const vence = new Date(vMes.getFullYear(), vMes.getMonth(), Math.min(t.vence, lastV));
+  return { cierre: isoDe(cierre), vence: isoDe(vence) };
+}
+
+function debitos() {
+  const C = cargosConFecha(), hoy = new Date(), hoyISO = todayISO(), out = [], usados = new Set();
+  const mes = todayKey();
+  S.data.fijos.forEach(f => {
+    if ((f.hasta && f.hasta < mes) || (f.desde && f.desde > E.addM(mes, 2))) return;
+    if (/presupuesto|promedio|comida \/ surtido/i.test(f.nombre)) return;
+    const ks = clavesDe(f.nombre);
+    const hits = ks.length ? C.filter(c => { const s = sinTilde(c.desc); return ks.some(k => s.includes(k)) && (!f.medio || c.medio === f.medio); }) : [];
+    hits.forEach(h => usados.add(h));
+    let dia = +f.dia || null, fuente = dia ? "guardado" : "";
+    if (!dia && hits.length) { const ds = hits.map(h => +h.fecha.slice(8, 10)).sort((a, b) => a - b); dia = ds[Math.floor(ds.length / 2)]; fuente = `aprendido de ${hits.length} cargo${hits.length > 1 ? "s" : ""}`; }
+    const ult = hits.map(h => h.fecha).sort().pop() || null;
+    let prox = null;
+    if (dia) {
+      let y = hoy.getFullYear(), m = hoy.getMonth(); const ld = new Date(y, m + 1, 0).getDate();
+      let p = new Date(y, m, Math.min(dia, ld)); if (isoDe(p) < hoyISO) { m++; p = new Date(y, m, Math.min(dia, new Date(y, m + 1, 0).getDate())); }
+      // si es de meses específicos (ej. matrícula), saltar a un mes que corresponda
+      for (let i = 0; i < 13 && !(E.fijoMonto(f, isoDe(p).slice(0, 7), S.data, S.R.movs) > 0); i++) { m++; p = new Date(y, m, Math.min(dia, new Date(y, m + 1, 0).getDate())); }
+      prox = isoDe(p);
+    }
+    const monto = E.fijoMonto(f, prox ? prox.slice(0, 7) : mes, S.data, S.R.movs) || +f.monto || 0;
+    out.push({ nombre: f.nombre, monto, moneda: f.moneda || "UYU", medio: f.medio || "", dia, fuente, ult, prox, res: prox ? resumenDeCargo(f.medio, prox) : null, fijo: true });
+  });
+  // cosas que se repiten todos los meses y NO están como gasto fijo
+  const G = {};
+  cargosConFecha().forEach(c => { if (usados.has(c) || /env[ií]o|resumen|seguro|iva|comisi|cargo|inter[eé]s|saldo/i.test(c.desc)) return; const k = normCom(c.desc); if (!k) return; (G[k] = G[k] || []).push(c); });
+  Object.values(G).forEach(L2 => {
+    const meses = new Set(L2.map(c => c.fecha.slice(0, 7))); if (meses.size < 2) return;
+    const vs = L2.map(c => c.monto).sort((a, b) => a - b), med = vs[Math.floor(vs.length / 2)];
+    if (!(med > 0) || vs.some(v => Math.abs(v - med) > med * 0.3)) return;
+    const ds = L2.map(c => +c.fecha.slice(8, 10)).sort((a, b) => a - b), dia = ds[Math.floor(ds.length / 2)], u = L2.map(c => c.fecha).sort().pop();
+    out.push({ nombre: L2[0].desc, monto: med, moneda: L2[0].moneda, medio: L2[0].medio, dia, fuente: `se repite ${meses.size} meses`, ult: u, prox: null, res: null, fijo: false });
+  });
+  return out.sort((a, b) => (a.prox || "9999").localeCompare(b.prox || "9999"));
+}
+
+function debitosTexto() {
+  try {
+    const D = debitos();
+    return D.map(x => `- ${x.nombre}: ${x.moneda === "USD" ? "U$S" : "$"} ${fmt(x.monto, x.moneda === "USD" ? 2 : 0)} · ${x.medio || "?"} · ${x.dia ? `se debita ~el día ${x.dia} (${x.fuente})` : "DÍA DESCONOCIDO"}${x.ult ? ` · último cargo visto ${x.ult}` : ""}${x.prox ? ` · próximo ${x.prox}` : ""}${x.res ? ` · entra en el resumen que cierra el ${x.res.cierre} y se paga el ${x.res.vence}` : ""}${x.fijo ? "" : " · NO está cargado como gasto fijo (parece suscripción)"}`).join("\n") || "- (sin datos)";
+  } catch (e) { return "- (no disponible)"; }
+}
+
+function debitosHTML() {
+  let D; try { D = debitos(); } catch (e) { return ""; }
+  const conDia = D.filter(x => x.dia), sin = D.filter(x => !x.dia && x.fijo), nuevos = D.filter(x => !x.fijo);
+  const fila = x => `<div class="gi"><span class="gic">${x.dia ? `<b style="font-size:14px">${x.dia}</b>` : "❔"}</span><div class="gtx"><b>${esc(x.nombre)}</b><div class="tiny mut">${esc(x.medio)}${x.prox ? ` · próximo ${fmtDate(x.prox)}` : ""}${x.res ? ` · se paga en el resumen del ${fmtDate(x.res.vence)}` : ""} · <i>${esc(x.fuente || "sin datos")}</i></div></div><div class="gmo"><b>${x.moneda === "USD" ? usd(x.monto) : money(x.monto)}</b></div></div>`;
+  return `<div class="card" style="margin-top:18px"><h3>🔁 Débitos automáticos <span class="hint">qué día se cobra cada cosa</span></h3>
+    <div class="small mut" style="margin-bottom:6px">La app aprende el día mirando lo que cargan. Preguntale al asesor "¿cuándo se debita Netflix?" o decile "Claude se cobra el 21" y lo guarda.</div>
+    ${conDia.map(fila).join("")}
+    ${sin.length ? `<div class="small" style="margin-top:12px"><b>Sin día todavía</b> <span class="mut">(decíselo al asesor o cargá el próximo cargo)</span></div>${sin.map(fila).join("")}` : ""}
+    ${nuevos.length ? `<div class="small" style="margin-top:12px"><b>Se repiten todos los meses pero no están como gasto fijo</b></div>${nuevos.map(fila).join("")}` : ""}</div>`;
+}
+
+// acción del chat: guardar el día de débito
+function descFijarDia(a) { const f = S.data.fijos.find(x => sinTilde(x.nombre) === sinTilde(a.nombre)) || S.data.fijos.find(x => clavesDe(a.nombre).some(k => sinTilde(x.nombre).includes(k))); return `📅 <b>${esc(f ? f.nombre : a.nombre)}</b> se debita el día <b>${+a.dia || "?"}</b>${f ? "" : ' <span class="pill red">no lo encuentro</span>'}`; }
+function aplicarFijarDia(a) {
+  const d = +a.dia; if (!(d >= 1 && d <= 31)) return false;
+  const L2 = S.data.fijos.filter(x => sinTilde(x.nombre) === sinTilde(a.nombre)); const fs = L2.length ? L2 : S.data.fijos.filter(x => clavesDe(a.nombre).some(k => sinTilde(x.nombre).includes(k)));
+  if (!fs.length) return false; fs.forEach(f => f.dia = d); return true;
+}
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [vCalendario, bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [vTarjetas, bindTarjetas], proyeccion: [vProyeccion],
+  panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [vTarjetas, bindTarjetas], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [vIngresos, bindIngresos], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [vPermitir, bindPermitir], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
