@@ -3256,6 +3256,7 @@ function condicionesTarjetasTexto() {
   const L2 = S.data.tarjetas.map(t => {
     const r = recargoExt(t), f = t.refin, p = [];
     if (r) p.push(`compras en el exterior (también webs del exterior en dólares) pagan ${fmt(t.exterior.recargo * 100, 1)}%${t.exterior.iva ? " + IVA" : ""} = ${fmt(r * 100, 2)}% extra sobre cada compra`);
+    if (t.exterior && !r) p.push("compras en el exterior y webs del exterior SIN recargo (no cobra el 3% + IVA)");
     if (f) p.push(`después de un viaje se pueden refinanciar las compras${f.moneda ? " en " + (f.moneda === "USD" ? "dólares" : "pesos") : ""} en ${f.min} a ${f.max} cuotas al ${fmt(f.tea * 100, 1)}% de interés anual (TEA)`);
     return p.length ? `- ${t.nombre}: ${p.join("; ")}${t.notaExterior ? ` (${t.notaExterior})` : ""}` : null;
   }).filter(Boolean);
