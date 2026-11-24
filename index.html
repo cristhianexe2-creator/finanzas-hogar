@@ -1449,6 +1449,9 @@ ${costumbresTexto()}
 ## Datos para gráficos
 ${datosGraficos()}
 
+## Condiciones de las tarjetas (exterior y refinanciación)
+${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
+
 ## Cazador de cargos (comisiones, seguros, envíos y planes que se pueden sacar)
 ${typeof cazadorTexto === "function" ? cazadorTexto() : "-"}
 
@@ -1470,6 +1473,7 @@ Tarjetas: ${d.tarjetas.map(t => t.nombre + (t.ultimos4 ? " (termina en " + t.ult
 Respondé SIEMPRE con un único objeto JSON: {"respuesta": "texto para mostrar (podés usar **negrita** y viñetas con -)", "acciones": [ ... ], "grafico": null}
 GRÁFICOS: si la pregunta se entiende mejor con un gráfico (comparar meses, categorías, evolución, cómo vienen), completá "grafico" con {"tipo":"barras|linea|torta","titulo":"","etiquetas":["..."],"series":[{"nombre":"","valores":[0]}]} usando SOLO números de "Datos para gráficos" o del contexto (en pesos, sin inventar). "torta" lleva una sola serie. Si no hace falta, "grafico": null.
 CÁLCULOS: si preguntan por un préstamo para pagar deudas, cuánto ahorran adelantando $X por mes o dónde poner una plata de una vez (aguinaldo, extra) y ese número exacto no está en "Deudas", respondé SOLO {"respuesta":"","acciones":[],"calculo":{"tipo":"consolidacion","monto":0,"tea":0,"plazo":0,"gastos":0,"cancelar":["nombre de deuda"]}} (o {"tipo":"extra","monto":0} o {"tipo":"pago_unico","monto":0}); "tea" en % anual (si no la dicen, poné 0 y la app supone 30%). La app calcula y te devuelve el resultado para que respondas con esos números.
+VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
 Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar, crear, borrar, corregir o actualizar un precio, o cuando manda un ticket, factura o resumen):
@@ -1635,7 +1639,7 @@ async function sendChat(q, ver) {
     const raw = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
     let j = parseJSON(raw) || { respuesta: raw, acciones: [] };
     if (j.calculo && typeof j.calculo === "object" && typeof calculoChat === "function") {
-      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : calculoChat(j.calculo);
+      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : j.calculo.tipo === "refinanciar" && typeof refinTexto === "function" ? refinTexto(j.calculo) : calculoChat(j.calculo);
       hist.push({ role: "model", parts: [{ text: raw }] });
       hist.push({ role: "user", parts: [{ text: "RESULTADO DEL CÁLCULO DE LA APP: " + res + "\nAhora respondé la pregunta original usando estos números (no pidas otro cálculo). Si ayuda, agregá un gráfico." }] });
       const raw2 = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
@@ -3230,7 +3234,7 @@ function tarjetaParaTexto(c) {
     const monto = +c.monto || 0, moneda = c.moneda === "USD" ? "USD" : "UYU", TC = +S.data.config.tc || 0, m$ = monto * (moneda === "USD" ? TC : 1);
     const r = recomendarTarjeta(S.data, S.R, { monto, moneda, categoria: c.categoria, descripcion: c.descripcion, fecha: c.fecha || todayISO(), cuotas: +c.cuotas || 1 });
     const hoy = new Date(), cierres = S.data.tarjetas.map(t => { const dd = t.cierre - hoy.getDate(); return dd >= 0 && dd <= 3 ? `${t.nombre} cierra en ${dd === 0 ? "hoy" : dd + " día" + (dd > 1 ? "s" : "")}: si esperás al ${t.cierre + 1 > new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate() ? 1 : t.cierre + 1}, la pagás un mes más tarde` : null; }).filter(Boolean);
-    return `${textoRecomendacion(r, m$, moneda)}\nRanking: ${r.slice(0, 4).map((x, i) => `${i + 1}) ${x.c.nombre}${x.alcanza ? "" : " (NO alcanza el disponible)"} · disponible ${money(x.ci.disponible)} · se paga ${x.vence ? fmtDate(new Date(x.vence).toISOString().slice(0, 10)) + ` (${x.dias} días)` : "?"}${x.bTxt ? " · " + x.bTxt : ""}${x.pts ? ` · +${fmt(x.pts)} puntos` : ""}${x.alcanza ? ` · después de la compra queda usada al ${Math.round(x.pctDesp * 100)}%` : ""}`).join(" | ")}${cierres.length ? "\nOjo: " + cierres.join("; ") + "." : ""}`;
+    return `${textoRecomendacion(r, m$, moneda)}\nRanking: ${r.slice(0, 4).map((x, i) => `${i + 1}) ${x.c.nombre}${x.alcanza ? "" : " (NO alcanza el disponible)"} · disponible ${money(x.ci.disponible)} · se paga ${x.vence ? fmtDate(new Date(x.vence).toISOString().slice(0, 10)) + ` (${x.dias} días)` : "?"}${x.bTxt ? " · " + x.bTxt : ""}${x.pts ? ` · +${fmt(x.pts)} puntos` : ""}${x.alcanza ? ` · después de la compra queda usada al ${Math.round(x.pctDesp * 100)}%` : ""}`).join(" | ")}${cierres.length ? "\nOjo: " + cierres.join("; ") + "." : ""}${moneda === "USD" && typeof recargoExt === "function" ? (() => { const rr = S.data.tarjetas.filter(t => recargoExt(t) > 0); return rr.length ? `\nSi es una compra en el exterior o en una web del exterior: ${rr.map(t => `${t.nombre} cobra ${fmt(recargoExt(t) * 100, 2)}% extra (U$S ${fmt(monto * recargoExt(t), 2)})`).join("; ")}. Tenelo en cuenta al elegir.` : ""; })() : ""}`;
   } catch (e) { return "No pude calcular la tarjeta: " + e.message; }
 }
 
@@ -3242,6 +3246,37 @@ function sugerenciaTarjetaHTML() {
     const elegida = r.find(x => x.c.nombre === SIM.medio);
     return `<div class="msg amarillo" style="margin-top:16px"><span class="e">💳</span><span>Te conviene más la <b>${esc(b.c.nombre)}</b> que la ${esc(SIM.medio)}: ${b.dias && elegida && elegida.dias ? `la pagás el ${fmtDate(new Date(b.vence).toISOString().slice(0, 10))} (${b.dias} días) en vez de ${elegida.dias} días` : "mejor combinación de plazo y disponible"}${b.bTxt ? `, y tiene ${esc(b.bTxt.toLowerCase())}` : ""}${b.pts ? `, suma ~${fmt(b.pts)} puntos` : ""}. <a href="#" id="simUsarMejor" data-t="${esc(b.c.nombre)}">Simular con esa</a></span></div>`;
   } catch (e) { return ""; }
+}
+
+// ===================== CONDICIONES DE TARJETAS: compras en el exterior y refinanciación
+// En cada tarjeta: exterior = { recargo: 0.03, iva: true }  ·  refin = { min: 3, max: 24, tea: 0.06, moneda: "USD" }
+function recargoExt(t) { const e = t && t.exterior; return e && +e.recargo > 0 ? +e.recargo * (e.iva ? 1.22 : 1) : 0; }
+
+function condicionesTarjetasTexto() {
+  const L2 = S.data.tarjetas.map(t => {
+    const r = recargoExt(t), f = t.refin, p = [];
+    if (r) p.push(`compras en el exterior (también webs del exterior en dólares) pagan ${fmt(t.exterior.recargo * 100, 1)}%${t.exterior.iva ? " + IVA" : ""} = ${fmt(r * 100, 2)}% extra sobre cada compra`);
+    if (f) p.push(`después de un viaje se pueden refinanciar las compras${f.moneda ? " en " + (f.moneda === "USD" ? "dólares" : "pesos") : ""} en ${f.min} a ${f.max} cuotas al ${fmt(f.tea * 100, 1)}% de interés anual (TEA)`);
+    return p.length ? `- ${t.nombre}: ${p.join("; ")}${t.notaExterior ? ` (${t.notaExterior})` : ""}` : null;
+  }).filter(Boolean);
+  return L2.join("\n") || "- (sin condiciones especiales cargadas)";
+}
+
+// cálculo para el chat: {tipo:"refinanciar", monto, moneda, tarjeta, cuotas}
+function refinTexto(c) {
+  try {
+    const t = S.data.tarjetas.find(x => x.nombre === c.tarjeta) || S.data.tarjetas.find(x => x.refin) || {}, f = t.refin;
+    const monto = +c.monto || 0, mon = c.moneda === "UYU" ? "UYU" : "USD", TC = +S.data.config.tc || 0;
+    const fx = v => mon === "USD" ? `U$S ${fmt(v, 2)} (≈ ${money(v * TC)})` : money(v);
+    const r = recargoExt(t), rec = monto * r, base = monto + rec;
+    let out = `Tarjeta ${t.nombre || "?"}: compras por ${fx(monto)}${r ? ` + recargo exterior ${fmt(r * 100, 2)}% = ${fx(rec)} → total ${fx(base)}` : ""}.`;
+    if (!f) return out + " Esta tarjeta no tiene cargada una refinanciación.";
+    const n = +c.cuotas, ops = (n ? [n] : [f.min, 6, 12, 18, f.max]).filter((x, i, a) => x >= f.min && x <= f.max && a.indexOf(x) === i);
+    const filas = ops.map(k => { const cu = anualidad(mTasa(f.tea), k, base); return `${k} cuotas de ${fx(cu)} (intereses ${fx(cu * k - base)})`; });
+    const pagoUnico = `Pagando todo en el resumen siguiente: ${fx(base)} sin intereses.`;
+    const tarjetaComun = t.teaUSD ? ` Para comparar: si NO refinancian y pagan el mínimo, la tarjeta cobra ${fmt(t.teaUSD * 100, 1)}% anual en dólares + IVA sobre el interés.` : "";
+    return `${out} Refinanciación al ${fmt(f.tea * 100, 1)}% anual: ${filas.join(" · ")}. ${pagoUnico}${tarjetaComun} Los dólares hay que pagarlos en dólares para no perder con el cambio.`;
+  } catch (e) { return "No pude calcular: " + e.message; }
 }
 
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
