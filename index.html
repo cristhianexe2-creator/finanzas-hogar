@@ -3150,7 +3150,7 @@ function cargosEscondidos() {
   migrarCazador();
   const d = S.data, mes = todayKey(), out = [];
   d.fijos.forEach((f, i) => {
-    if ((f.hasta && f.hasta < mes) || (f.desde && f.desde > E.addM(mes, 1))) return;
+    if ((f.hasta && f.hasta < mes) || (f.desde && f.desde > E.addM(mes, 12))) return;
     if (!(/Cargos bancarios/.test(f.categoria || "") || RX_FEE.test(f.nombre))) return;
     if (/seguro del auto|seguro de la casa|seguro de vida/i.test(f.nombre)) return; // seguros que sí cubren algo importante
     const v = E.fijoMonto(f, mes, d, S.R.movs) || +f.monto || 0;
@@ -3164,7 +3164,9 @@ function cargosEscondidos() {
   d.tarjetas.forEach(t => (t.compras || []).forEach(c => {
     if (!c.fecha || c.fecha < desde || !RX_FEE.test(c.comercio || "") || (typeof RX_INT !== "undefined" && RX_INT.test(c.comercio || "")) || /kedal|pr[eé]stamo/i.test(c.comercio || "")) return;
     const v = +c.total || +c.valorCuota || 0;
-    const cubierto = out.some(o => o.medio === t.nombre && !o.unico && Math.abs(uyuEq(c.moneda, v) - o.mes$) <= Math.max(15, o.mes$ * 0.2)) || out.some(o => clavesDe(c.comercio).some(k => sinTilde(o.nombre).includes(k)));
+    const tipoDe = x => { const n = sinTilde(x); return [/seguro/.test(n) && "seguro", /\biva\b/.test(n) && "iva", /envio|estado de cuenta|resumen/.test(n) && "envio", /comision|gastos adm/.test(n) && "comision"].filter(Boolean); };
+    const combinado = out.some(o => o.medio === t.nombre && o.fijo !== undefined && /\(.*\+.*\)/.test(o.nombre) && tipoDe(c.comercio).some(k => tipoDe((o.nombre.match(/\((.*)\)/) || [])[1] || "").includes(k)));
+    const cubierto = combinado || out.some(o => o.medio === t.nombre && !o.unico && Math.abs(uyuEq(c.moneda, v) - o.mes$) <= Math.max(15, o.mes$ * 0.2)) || out.some(o => clavesDe(c.comercio).some(k => sinTilde(o.nombre).includes(k)));
     const k = t.nombre + "|" + sinTilde(c.comercio); if (cubierto || vistos.has(k)) return; vistos.add(k);
     const anual = /anual|renovaci/i.test(c.comercio);
     out.push({ key: "c:" + k, nombre: c.comercio, medio: t.nombre, moneda: c.moneda || "UYU", monto: v, mes$: uyuEq(c.moneda, v) / (anual ? 12 : 1), anual, nuevo: c.fecha });
@@ -3183,7 +3185,7 @@ function cazadorTexto() {
 function vCazador() {
   const L2 = cargosEscondidos(), act = L2.filter(x => x.est !== "Dado de baja" && x.est !== "Lo mantengo" && !x.unico), baja = L2.filter(x => x.est === "Dado de baja" && !x.unico);
   const tot = act.reduce((s, x) => s + x.mes$, 0), ahorro = baja.reduce((s, x) => s + x.mes$, 0), nuevos = L2.filter(x => x.nuevo);
-  const porT = {}; L2.filter(x => !x.unico && x.est !== "Dado de baja").forEach(x => x.medio.split(", ").forEach(m => porT[m] = (porT[m] || 0) + x.mes$));
+  const porT = {}; S.data.tarjetas.forEach(t => porT[t.nombre] = 0); L2.filter(x => !x.unico && x.est !== "Dado de baja").forEach(x => x.medio.split(", ").forEach(m => porT[m] = (porT[m] || 0) + x.mes$));
   const G = S._czG = S._czG || {};
   const fila = x => `<div class="czi ${x.est === "Dado de baja" ? "ok" : ""}"><div style="display:flex;gap:10px;align-items:flex-start">
       <div style="flex:1;min-width:0"><b>${esc(x.nombre)}</b>${x.nuevo ? ' <span class="pill red">🆕 nuevo</span>' : ""}<div class="tiny mut">${esc(x.medio)} · ${esc(x.c.tipo)}</div></div>
@@ -3198,8 +3200,8 @@ function vCazador() {
     <div class="mini"><div class="tiny mut">Ya ahorrado</div><div class="big" style="color:#16A34A">${money(ahorro)}</div><div class="tiny mut">por mes · ${money(ahorro * 12)}/año</div></div></div>
   ${nuevos.length ? `<div class="msg rojo" style="margin-bottom:12px"><span class="e">🆕</span><span>Aparecieron cargos en los resúmenes que no tenían anotados: <b>${[...new Set(nuevos.map(x => x.nombre))].map(esc).join(", ")}</b>. Revisalos abajo.</span></div>` : ""}
   <div class="card">${L2.map(fila).join("") || '<div class="empty">No encontré cargos de este tipo</div>'}</div>
-  ${Object.keys(porT).length ? `<div class="card" style="margin-top:16px"><h3>💳 Lo que cuesta tener cada tarjeta</h3><div class="small mut" style="margin-bottom:6px">Solo comisiones, seguros y envíos (sin compras). Si una cuesta mucho y casi no la usan, conviene cerrarla.</div>
-    ${Object.entries(porT).sort((a, b) => b[1] - a[1]).map(([t, v]) => `<div class="rowbar"><span class="n">${esc(t)}</span><span class="v">${money(v * 12)}/año</span>${barHTML(v / Math.max(...Object.values(porT)), "#DC2626")}</div>`).join("")}</div>` : ""}
+  ${Object.keys(porT).length ? `<div class="card" style="margin-top:16px"><h3>💳 Lo que cuesta tener cada tarjeta</h3><div class="small mut" style="margin-bottom:6px">Solo comisiones, seguros y envíos (sin compras), incluidos los obligatorios y los que empiezan en los próximos meses. Si una cuesta mucho y casi no la usan, conviene cerrarla.</div>
+    ${Object.entries(porT).sort((a, b) => b[1] - a[1]).map(([t, v]) => `<div class="rowbar"><span class="n">${esc(t)}</span><span class="v">${v > 0 ? money(v * 12) + "/año" : '<span class="pill green">sin costos detectados</span>'}</span>${barHTML(v / Math.max(1, ...Object.values(porT)), "#DC2626")}</div>`).join("")}</div>` : ""}
   <div class="tiny mut" style="margin-top:8px">Cuando marcás "Dado de baja" un gasto fijo, deja de contarse desde el mes que viene. Cada resumen nuevo se revisa solo y si aparece un cargo raro te lo marca como 🆕.</div>`;
 }
 
