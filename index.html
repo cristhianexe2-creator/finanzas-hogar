@@ -828,7 +828,7 @@ function vPanel() {
   const pres = +S.data.config.presComida || 0, tope = +S.data.config.topeComida || 0, com = A.comida;
   const comPct = pres ? com / pres : 0;
   const n12 = R.proy.slice(k, k + 12);
-  const dist = [["💳 Tarjetas (resúmenes que vencen)", p.E, "#2563EB"], ["🧾 Gastos fijos", p.F, "#EA580C"], ["🏦 Préstamos", p.G, "#7C3AED"], ["💵 Efectivo y cuentas", p.H, "#0D9488"]];
+  const dist = [["💳 Tarjetas (resúmenes que vencen)", p.E, "#2563EB"], ["🧾 Gastos fijos", p.F, "#EA580C"], ["🏦 Préstamos que pagás aparte", p.G, "#7C3AED"], ["💵 Efectivo y cuentas", p.H, "#0D9488"]];
   return header("Panel del mes", "Cómo viene el mes que elijas: lo que entra, lo que sale y lo que queda.") + `
   <div class="grid g4">
     <div class="card kpi k-green"><div class="lab">💵 Ingresos</div><div class="val">${money(p.D)}</div><div class="foot">${p.C ? "incluye " + money(p.C) + " cargados de verdad" : "estimados del mes"}</div></div>
@@ -843,7 +843,7 @@ function vPanel() {
       <div class="avisos">${(S.mes === todayKey() ? avisosTarjetasHoy(S.data, S.R) : []).concat(S.mes === todayKey() ? interesesAviso() : []).concat(A.avisos).slice(0, 7).map(a => `<div class="msg ${a.tipo}"><span class="e">${AV_ICON[a.tipo]}</span><span>${esc(a.txt)}</span></div>`).join("")}</div></div>
     <div class="card"><h3>💸 En qué se va la plata</h3>
       ${dist.map(([n, v, c]) => `<div class="rowbar"><span class="n">${n}</span><span class="v">${money(v)}</span>${barHTML(p.I ? v / p.I : 0, c)}</div>`).join("")}
-      <div class="small mut" style="margin-top:10px">Préstamos descontados del sueldo (ya no se restan): <b>${money(p.ret)}</b></div>
+      ${cuotasPrestamosHTML(S.mes)}
       <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
       <h3>🛒 Comida del mes</h3>
       <div style="display:flex;gap:16px;align-items:center">${svgDonut(comPct, com > tope ? "#DC2626" : com > pres ? "#F59E0B" : "#16A34A", Math.round(comPct * 100) + "%", "del presupuesto")}
@@ -1187,6 +1187,21 @@ function bindConfig(root) {
   if ($("#cnFile")) { $("#cnFile").onclick = connectFile; $("#opFile").onclick = openFile; } $("#expJ").onclick = exportJSON; $("#impJ").onclick = importJSON;
   $("#resetD").onclick = () => { if (confirm("¿Seguro? Se pierde todo lo que cargaste en la app y vuelve a los datos del Excel.")) { S.data = JSON.parse(JSON.stringify(SEED)); migrate(S.data); commit("Datos iniciales restaurados"); } };
   $("#testAI").onclick = async () => { $("#aiTest").textContent = "Probando…"; try { const r = await geminiAsk([{ role: "user", parts: [{ text: "Decí solo: ¡Conectado!" }] }], ""); $("#aiTest").innerHTML = `<span class="pill green">✔ ${esc(r.trim().slice(0, 40))} (${esc(S._model)})</span>`; } catch (e) { $("#aiTest").innerHTML = `<div class="msg rojo" style="padding:8px 12px">${esc(e.message)}</div>`; } };
+}
+
+// Todas las cuotas de préstamos del mes, aunque se paguen por distintos lados
+function cuotasPrestamosHTML(m) {
+  const TC = +S.data.config.tc || 0, L = S.R.prestamos.filter(({ i }) => i.ok && i.primera && m >= i.primera && m <= i.ultima).map(({ p, i }) => {
+    const v = (+p.cuota || 0) * (i.factor || 1) * (p.moneda === "USD" ? TC : 1);
+    const como = p.forma === "Retención de sueldo" ? "te lo descuentan del sueldo" : p.forma === "Se cobra en tarjeta" ? "viene dentro del resumen de la tarjeta" : "lo pagás aparte";
+    return { n: p.nombre, v, como, aparte: p.forma !== "Retención de sueldo" && p.forma !== "Se cobra en tarjeta" };
+  });
+  if (!L.length) return "";
+  const tot = L.reduce((s, x) => s + x.v, 0);
+  return `<div style="margin-top:12px;padding:10px 12px;border-radius:12px;background:#F5F3FF;border:1px solid #DDD6FE">
+    <div class="small"><b>🏦 Cuotas de préstamos este mes: ${money(tot)}</b></div>
+    ${L.map(x => `<div class="tiny" style="display:flex;justify-content:space-between;gap:8px;margin-top:4px"><span>${esc(x.n)} <span class="mut">· ${x.como}</span></span><b style="white-space:nowrap">${money(x.v)}</b></div>`).join("")}
+    <div class="tiny mut" style="margin-top:6px">Arriba en "Préstamos" solo va lo que pagás aparte. Lo de la tarjeta ya está sumado en Tarjetas y lo del sueldo ya viene descontado de lo que cobrás, así no se cuenta dos veces.</div></div>`;
 }
 
 // ===================== ASESOR + IA (Gemini) =====================
