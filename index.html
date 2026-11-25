@@ -808,7 +808,7 @@ const AV_ICON = { rojo: "🔴", verde: "🟢", naranja: "⚠️", amarillo: "�
 
 // ===================== PANTALLAS =====================
 const NAV = [
-  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
+  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
   ["calendario", "📅", "Calendario"], ["proyeccion", "📈", "Proyección"], ["informes", "📑", "Informes"], ["wrapped", "🎁", "Tu 2026"], ["fijos", "🧾", "Gastos fijos"], ["ingresos", "💵", "Ingresos"],
   ["prestamos", "🏦", "Préstamos"], ["ahorro", "🐷", "Ahorro y metas"], ["pendientes", "✅", "Pendientes"], ["config", "⚙️", "Configuración"]
 ];
@@ -843,7 +843,7 @@ function vPanel() {
   <div style="margin-top:16px">${cardHoy()}</div>${cardSemana()}
   <div class="grid g21" style="margin-top:16px">
     <div class="card"><h3>🧭 Consejos del mes <span class="hint"><a href="#" data-go="asesor">Ver el asesor completo →</a></span></h3>
-      <div class="avisos">${(S.mes === todayKey() ? avisosTarjetasHoy(S.data, S.R) : []).concat(S.mes === todayKey() ? interesesAviso() : []).concat(A.avisos).slice(0, 7).map(a => `<div class="msg ${a.tipo}"><span class="e">${AV_ICON[a.tipo]}</span><span>${esc(a.txt)}</span></div>`).join("")}</div></div>
+      <div class="avisos">${(S.mes === todayKey() ? avisosTarjetasHoy(S.data, S.R) : []).concat(S.mes === todayKey() ? interesesAviso() : []).concat(S.mes === todayKey() && typeof avisos9 === "function" ? avisos9() : []).concat(A.avisos).slice(0, 8).map(a => `<div class="msg ${a.tipo}"><span class="e">${AV_ICON[a.tipo]}</span><span>${esc(a.txt)}</span></div>`).join("")}</div></div>
     <div class="card"><h3>💸 En qué se va la plata</h3>
       ${dist.map(([n, v, c]) => `<div class="rowbar"><span class="n">${n}</span><span class="v">${money(v)}</span>${barHTML(p.I ? v / p.I : 0, c)}</div>`).join("")}
       ${cuotasPrestamosHTML(S.mes)}
@@ -1449,6 +1449,8 @@ ${costumbresTexto()}
 ## Datos para gráficos
 ${datosGraficos()}
 
+${typeof contexto9 === "function" ? contexto9() : ""}
+
 ## Condiciones de las tarjetas (exterior y refinanciación)
 ${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
 
@@ -1473,6 +1475,7 @@ Tarjetas: ${d.tarjetas.map(t => t.nombre + (t.ultimos4 ? " (termina en " + t.ult
 Respondé SIEMPRE con un único objeto JSON: {"respuesta": "texto para mostrar (podés usar **negrita** y viñetas con -)", "acciones": [ ... ], "grafico": null}
 GRÁFICOS: si la pregunta se entiende mejor con un gráfico (comparar meses, categorías, evolución, cómo vienen), completá "grafico" con {"tipo":"barras|linea|torta","titulo":"","etiquetas":["..."],"series":[{"nombre":"","valores":[0]}]} usando SOLO números de "Datos para gráficos" o del contexto (en pesos, sin inventar). "torta" lleva una sola serie. Si no hace falta, "grafico": null.
 CÁLCULOS: si preguntan por un préstamo para pagar deudas, cuánto ahorran adelantando $X por mes o dónde poner una plata de una vez (aguinaldo, extra) y ese número exacto no está en "Deudas", respondé SOLO {"respuesta":"","acciones":[],"calculo":{"tipo":"consolidacion","monto":0,"tea":0,"plazo":0,"gastos":0,"cancelar":["nombre de deuda"]}} (o {"tipo":"extra","monto":0} o {"tipo":"pago_unico","monto":0}); "tea" en % anual (si no la dicen, poné 0 y la app supone 30%). La app calcula y te devuelve el resultado para que respondas con esos números.
+${typeof REGLAS9 === "string" ? REGLAS9 : ""}
 VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
@@ -1519,6 +1522,7 @@ const CHIPS = {
   proyeccion: ["¿Cuál es el peor mes y por qué?"], prestamos: ["¿Qué préstamo me conviene cancelar primero?"]
 };
 function actSummary(a) {
+  if (typeof desc9 === "function") { const r9 = desc9(a); if (r9) return r9; }
   const mo = a.moneda === "USD" ? "U$S " : "$ ";
   if (a.tipo === "movimiento") return `${a.tipoMov && a.tipoMov !== "Gasto" ? "💰 " + a.tipoMov : "🧾"} <b>${esc(a.descripcion)}</b> · ${mo}${fmt(+a.monto || 0, 2)} · ${esc(a.medio || "¿medio?")}${a.cuotas > 1 ? " · " + a.cuotas + " cuotas" : ""} · <span class="mut">${fmtDate(a.fecha)}${a.categoria ? " · " + esc(a.categoria) : ""}</span>`;
   if (a.tipo === "compra_tarjeta") return `💳 <b>${esc(a.comercio)}</b> · cuota ${a.cuotaInicial}/${a.cuotas} de ${mo}${fmt(+a.valorCuota || 0, 2)} · ${esc(a.tarjeta)} · <span class="mut">resumen ${a.resumen ? E.mesCorto(a.resumen) : "?"}</span>`;
@@ -1661,6 +1665,7 @@ const ACT_F = {
 function editAccion(a) { modal("Revisar antes de cargar", ACT_F[a.tipo](), a, (v) => { Object.assign(a, v); a._okMedio = true; a._okCuotas = true; a._dup = isDup(a); renderChat(); }); }
 function aplicarAccion(a) {
   const d = S.data;
+  if (typeof aplicar9 === "function") { const r9 = aplicar9(a); if (r9 !== undefined) return r9; }
   if (a.tipo === "movimiento") {
     const isC = L.isCard(a.medio);
     d.movimientos.unshift({ fecha: a.fecha || todayISO(), tipo: a.tipoMov || "Gasto", descripcion: a.descripcion || "Sin descripción", categoria: a.categoria || null, persona: a.persona || (S.user ? S.user.nombre : d.config.personas[0]), moneda: a.moneda || "UYU", monto: +a.monto, medio: a.medio, cuotas: isC ? (+a.cuotas || 1) : null });
@@ -3282,11 +3287,263 @@ function refinTexto(c) {
   } catch (e) { return "No pude calcular: " + e.message; }
 }
 
+// ===================== PAQUETE 9: provisiones, pago parcial, PDFs del banco, viaje, gestiones, planes de celular
+const resumenDe9 = (tarjeta, fechaISO) => { const r = resumenDeCargo(tarjeta, fechaISO); return r ? r.cierre.slice(0, 7) : fechaISO.slice(0, 7); };
+const cardCI = nombre => S.R.cards.find(c => c.card.nombre === nombre);
+const fijoPorNombre = n => { const s = sinTilde(n); return S.data.fijos.find(f => sinTilde(f.nombre) === s) || S.data.fijos.find(f => clavesDe(n).some(k => sinTilde(f.nombre).includes(k))); };
+
+function migrar9() {
+  const d = S.data;
+  d.provisiones = d.provisiones || { juntado: {}, extras: [] };
+  d.gestiones = d.gestiones || [];
+  if (!d._seed9) {
+    d._seed9 = true;
+    const g = (titulo, empresa, verificar, cuando, nota) => d.gestiones.push({ id: Math.random().toString(36).slice(2, 9), titulo, empresa, fecha: "2026-11-24", numero: "", verificar, cuando, estado: "Esperando", nota: nota || "" });
+    g("Baja de los 5 planes Beneficia", "Beneficia / Pronto", "En el resumen de la Visa Pronto que cierra el 5/1/2027, el Débito Kedal tiene que venir en $ 18.095 (no $ 19.575).", "2027-01-06");
+    g("Estado de cuenta digital (sin costo de envío)", "Santander", "En el resumen de la Santander Platinum que cierra el 4/1/2027 no tiene que venir \"Envío estado de cuenta\".", "2027-01-05");
+    g("Débito automático de OSE en la Santander Platinum", "Santander / OSE", "La factura de OSE tiene que venir en el resumen de la Santander y no cobrarse en la caja BROU.", "2027-01-05", "Si todavía no lo adheriste, hacelo y cargá el número de gestión.");
+    g("50% de descuento en la cuota anual (por débito automático)", "Santander", "En la renovación, la cuota anual de la Platinum tiene que venir en unos $ 972 (la mitad de $ 1.943).", "2027-11-05");
+  }
+}
+
+// ---------- 1) GASTOS QUE SE VIENEN (provisiones)
+function provisiones9() {
+  migrar9();
+  const d = S.data, hoy = todayKey(), out = [];
+  d.fijos.forEach(f => {
+    if ((f.hasta && f.hasta < hoy) || L.isCard(f.medio) && /Cargos bancarios/.test(f.categoria || "")) return;
+    const meses = []; for (let i = 1; i <= 12; i++) { const m = E.addM(hoy, i), v = E.fijoMonto(f, m, d, S.R.movs); if (v > 0) meses.push({ m, v: uyuEq(f.moneda, v) }); }
+    if (!meses.length || meses.length > 6) return;
+    const anual = meses.reduce((s, x) => s + x.v, 0), prox = meses[0];
+    out.push({ key: "f:" + f.nombre, nombre: f.nombre, anual, prox, veces: meses.length });
+  });
+  d.provisiones.extras.forEach((x, i) => {
+    const mm = String(x.mes).padStart(2, "0"); let m = hoy.slice(0, 4) + "-" + mm; if (m <= hoy) m = E.addM(m, 12);
+    out.push({ key: "x:" + i, nombre: x.nombre, anual: +x.monto || 0, prox: { m, v: +x.monto || 0 }, veces: 1, extra: i });
+  });
+  out.forEach(o => {
+    o.juntado = +d.provisiones.juntado[o.key] || 0;
+    o.mesesHasta = Math.max(1, E.diffM(o.prox.m, hoy));
+    o.porMes = Math.max(0, (o.prox.v - o.juntado) / o.mesesHasta);
+    o.normal = o.anual / 12;
+  });
+  return out.sort((a, b) => a.prox.m.localeCompare(b.prox.m));
+}
+function vProvisiones() {
+  const P = provisiones9(), tot = P.reduce((s, x) => s + x.porMes, 0), jun = P.reduce((s, x) => s + x.juntado, 0);
+  return header("🗓️ Gastos que se vienen", "Lo que no se paga todos los meses: cuánto separar por mes para que no caiga todo junto.", false) + `
+  <div class="gk"><div class="mini"><div class="tiny mut">Separar por mes</div><div class="big" style="color:#2563EB">${money(tot)}</div><div class="tiny mut">para llegar a tiempo</div></div>
+    <div class="mini"><div class="tiny mut">Ya juntado</div><div class="big" style="color:#16A34A">${money(jun)}</div><div class="tiny mut">en total</div></div>
+    <div class="mini"><div class="tiny mut">Lo próximo</div><div class="big" style="font-size:15px">${P[0] ? esc(P[0].nombre) : "—"}</div><div class="tiny mut">${P[0] ? E.mesLargo(P[0].prox.m) : ""}</div></div></div>
+  <div class="card">${P.map(x => { const p = Math.min(1, x.juntado / Math.max(1, x.prox.v)); return `<div class="meta"><div class="mh"><span class="mi">${/matr|colegio/i.test(x.nombre) ? "🎒" : /patente|auto/i.test(x.nombre) ? "🚗" : /seguro/i.test(x.nombre) ? "🛡️" : /fiesta|navidad/i.test(x.nombre) ? "🎄" : "🗓️"}</span><div style="flex:1"><b>${esc(x.nombre)}</b><div class="tiny mut">${money(x.prox.v)} en ${E.mesLargo(x.prox.m)} · ${x.veces > 1 ? `${x.veces} veces en el año (${money(x.anual)})` : "una vez por año"} · separá <b>${money(x.porMes)}</b> por mes</div></div><span class="mp">${Math.round(p * 100)}%</span></div>
+    <div class="mbar"><i style="width:${Math.max(p > 0 ? 4 : 0, p * 100)}%"></i></div>
+    <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap"><span class="small">Juntado: <b>${money(x.juntado)}</b></span><input type="number" data-pvn="${esc(x.key)}" placeholder="Monto" style="width:110px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><button class="btn sm pri" data-pvs="${esc(x.key)}">➕ Sumar</button><button class="btn sm" data-pv0="${esc(x.key)}">Ya lo pagué</button>${x.extra !== undefined ? `<button class="btn sm" data-pvdel="${x.extra}">🗑</button>` : ""}</div></div>`; }).join("") || '<div class="empty">No hay gastos que no sean mensuales</div>'}
+  <div class="small" style="margin-top:14px"><b>Agregar otro</b> <span class="mut">(fiestas, cumpleaños, vacaciones, útiles…)</span></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input id="pvNom" placeholder="Nombre" style="width:160px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><input id="pvMon" type="number" placeholder="Monto" style="width:110px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><select id="pvMes" style="border:1.5px solid var(--line);border-radius:8px;padding:6px">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${E.mesLargo("2026-" + String(i + 1).padStart(2, "0")).split(" ")[0]}</option>`).join("")}</select><button class="btn sm" id="pvAdd">➕ Agregar</button></div></div>
+  <div class="tiny mut" style="margin-top:8px">Lo ideal es tener una cuenta o un sobre aparte para esto. "Ya lo pagué" vuelve el contador a cero para el año que viene.</div>`;
+}
+function bindProvisiones(root) {
+  const d = S.data;
+  root.querySelectorAll("[data-pvs]").forEach(b => b.onclick = () => { const k = b.dataset.pvs, v = +root.querySelector(`[data-pvn="${k}"]`).value; if (!v) { toast("Poné un monto"); return; } d.provisiones.juntado[k] = (+d.provisiones.juntado[k] || 0) + v; commit("🐷 Sumado"); });
+  root.querySelectorAll("[data-pv0]").forEach(b => b.onclick = () => { d.provisiones.juntado[b.dataset.pv0] = 0; commit("✔ Listo, arranca de cero"); });
+  root.querySelectorAll("[data-pvdel]").forEach(b => b.onclick = () => { d.provisiones.extras.splice(+b.dataset.pvdel, 1); commit("🗑 Borrado"); });
+  const a = $("#pvAdd"); a && (a.onclick = () => { const n = $("#pvNom").value.trim(), m = +$("#pvMon").value; if (!n || !m) { toast("Poné nombre y monto"); return; } d.provisiones.extras.push({ nombre: n, monto: m, mes: +$("#pvMes").value }); commit("➕ Agregado"); });
+}
+
+// ---------- 2) PAGO MÍNIMO / PARCIAL
+function pagoParcial({ tarjeta, resumen, pagado, fechaPago }) {
+  const t = S.data.tarjetas.find(x => x.nombre === tarjeta), ci = cardCI(tarjeta); if (!t || !ci) return false;
+  const r = ci.res.find(x => x.mes === resumen); if (!r) return false;
+  const tot = r.totUYU, saldo = tot - (+pagado || 0); if (saldo < 1) return false;
+  t.pagos[resumen] = Object.assign({}, t.pagos[resumen] || {}, { uyu: tot });
+  const sig = E.addM(resumen, 1), tea = +t.teaUYU || 0.65, venc = new Date(r.vence), fin = fechaPago ? new Date(fechaPago + "T12:00") : new Date(new Date(r.vence).getTime() + 30 * 864e5);
+  const dias = Math.max(1, Math.round((fin - venc) / 864e5)), int = saldo * (Math.pow(1 + tea, dias / 365) - 1) * 1.22;
+  t.compras.push({ fecha: todayISO(), comercio: `Saldo financiado del resumen de ${E.mesLargo(resumen)}`, moneda: "UYU", total: Math.round(saldo * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: sig, categoria: "Saldo financiado", persona: "", nota: `Pagaste ${money(+pagado || 0)} de ${money(tot)}.` });
+  t.compras.push({ fecha: todayISO(), comercio: "Intereses por financiación (estimado)", moneda: "UYU", total: Math.round(int * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: sig, categoria: "Cargos bancarios", persona: "", nota: `${dias} días al ${fmt(tea * 100, 1)}% anual + IVA. Cambialo por el real cuando llegue el resumen.` });
+  if (fechaPago) t.pagoPlan = { fecha: fechaPago, monto: Math.round(saldo + int), resumen: sig };
+  return { saldo, int, sig };
+}
+function parcialHTML() {
+  const L2 = []; S.R.cards.forEach(ci => ci.res.forEach(r => { if ((r.estado === "A pagar" || r.estado === "VENCIDO") && r.saldoUYU > 1) L2.push({ ci, r }); }));
+  if (!L2.length) return "";
+  const k = S._pp;
+  return `<div class="card" style="margin-top:16px"><h3>💳 ¿No llegás a pagar el total?</h3><div class="small mut" style="margin-bottom:8px">Pagá por lo menos el mínimo antes del vencimiento (si no, entra en mora). Anotá lo que pagaste y la app pasa el resto al resumen siguiente con el interés estimado.</div>
+    ${L2.map(({ ci, r }) => { const id = ci.card.nombre + "|" + r.mes; return `<div class="rowbar" style="align-items:center"><span class="n"><b>${esc(ci.card.nombre)}</b> · ${E.mesLargo(r.mes)} · vence ${fmtDate(new Date(r.vence).toISOString().slice(0, 10))}</span><span class="v">${money(r.saldoUYU)}</span><button class="btn sm" data-ppo="${esc(id)}">Pagué una parte</button></div>
+      ${k === id ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px"><label class="small">Pagué $<input type="number" id="ppMonto" style="width:110px;border:1.5px solid var(--line);border-radius:8px;padding:6px;margin-left:4px"></label><label class="small">El resto lo pago el<input type="date" id="ppFecha" style="border:1.5px solid var(--line);border-radius:8px;padding:5px;margin-left:4px"></label><button class="btn sm pri" data-ppok="${esc(id)}">Guardar</button></div>` : ""}`; }).join("")}</div>`;
+}
+function bindParcial(root) {
+  root.querySelectorAll("[data-ppo]").forEach(b => b.onclick = () => { S._pp = S._pp === b.dataset.ppo ? null : b.dataset.ppo; render(); });
+  root.querySelectorAll("[data-ppok]").forEach(b => b.onclick = () => {
+    const [tarjeta, resumen] = b.dataset.ppok.split("|"), pagado = +$("#ppMonto").value || 0, fechaPago = $("#ppFecha").value || null;
+    const ci = cardCI(tarjeta), r = ci && ci.res.find(x => x.mes === resumen); if (!r) return;
+    const yaPagado = r.totUYU - r.saldoUYU, res = pagoParcial({ tarjeta, resumen, pagado: yaPagado + pagado, fechaPago });
+    if (!res) { toast("No pude guardarlo"); return; }
+    S._pp = null; commit(`✔ ${money(res.saldo)} pasan al resumen de ${E.mesLargo(res.sig)} (+ ~${money(res.int)} de interés)`);
+  });
+}
+
+// ---------- 3) VIAJE
+function viajeGastos() {
+  const v = S.data.viaje; if (!v) return [];
+  const out = [];
+  S.data.tarjetas.forEach(t => (t.compras || []).forEach(c => { if (c.viaje === v.id) out.push({ fecha: c.fecha, desc: c.comercio, usd: c.moneda === "USD" ? +c.total || 0 : (+c.total || 0) / (+S.data.config.tc || 1), medio: t.nombre, recargo: /^Recargo exterior/.test(c.comercio) }); }));
+  (v.efectivo || []).forEach(e => out.push({ fecha: e.fecha, desc: e.desc, usd: +e.usd || 0, medio: "Efectivo (dólares)" }));
+  return out.sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+function mejorTarjetaViaje() {
+  const T = S.R.cards.filter(ci => ci.disponible > 0).map(ci => ({ ci, r: recargoExt(ci.card) })).sort((a, b) => a.r - b.r || b.ci.disponible - a.ci.disponible);
+  return T[0] ? T[0].ci.card.nombre : "";
+}
+function viajeTexto() {
+  const v = S.data.viaje; if (!v) return "- (no hay un viaje cargado)";
+  const G = viajeGastos(), tot = G.reduce((s, x) => s + x.usd, 0), hoy = todayISO();
+  const diasT = Math.max(1, Math.round((new Date(v.hasta) - new Date(v.desde)) / 864e5) + 1), diasR = Math.max(0, Math.round((new Date(v.hasta) - new Date(hoy > v.desde ? hoy : v.desde)) / 864e5) + 1);
+  return `Viaje "${v.nombre}" del ${v.desde} al ${v.hasta} (${diasT} días). Presupuesto U$S ${fmt(+v.presupuesto || 0, 0)}. Gastado U$S ${fmt(tot, 2)} (incluye recargos). Queda U$S ${fmt((+v.presupuesto || 0) - tot, 2)}${diasR ? `, o sea U$S ${fmt(((+v.presupuesto || 0) - tot) / diasR, 2)} por día en los ${diasR} días que quedan` : ""}. Tarjeta recomendada para el viaje: ${mejorTarjetaViaje()} (sin recargo en el exterior).`;
+}
+function vViaje() {
+  const v = S.data.viaje;
+  if (!v) return header("✈️ Viaje", "Presupuesto en dólares, gastos del viaje y cómo pagarlo al volver.", false) + `<div class="card"><h3>Armar el viaje</h3>
+    <div class="grid g2" style="gap:8px"><label class="small">Destino o nombre<input id="vjNom" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:7px"></label><label class="small">Presupuesto (U$S)<input id="vjPre" type="number" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:7px"></label>
+    <label class="small">Desde<input id="vjDes" type="date" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:6px"></label><label class="small">Hasta<input id="vjHas" type="date" style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:6px"></label></div>
+    <button class="btn pri" id="vjCrear" style="margin-top:10px">Crear viaje</button></div>`;
+  const G = viajeGastos(), tot = G.reduce((s, x) => s + x.usd, 0), pre = +v.presupuesto || 0, hoy = todayISO(), TC = +S.data.config.tc || 0;
+  const diasR = Math.max(0, Math.round((new Date(v.hasta) - new Date(hoy > v.desde ? hoy : v.desde)) / 864e5) + 1), best = mejorTarjetaViaje();
+  const porT = {}; G.filter(g => g.medio !== "Efectivo (dólares)").forEach(g => porT[g.medio] = (porT[g.medio] || 0) + g.usd);
+  const santa = S.data.tarjetas.find(t => t.refin);
+  const p = Math.min(1, tot / Math.max(1, pre));
+  return header(`✈️ ${esc(v.nombre)}`, `Del ${fmtDate(v.desde)} al ${fmtDate(v.hasta)}`, false) + `
+  <div class="gk"><div class="mini"><div class="tiny mut">Gastado</div><div class="big" style="color:#DC2626">U$S ${fmt(tot, 0)}</div><div class="tiny mut">≈ ${money(tot * TC)}</div></div>
+    <div class="mini"><div class="tiny mut">Queda</div><div class="big" style="color:${pre - tot < 0 ? "#DC2626" : "#16A34A"}">U$S ${fmt(pre - tot, 0)}</div><div class="tiny mut">de U$S ${fmt(pre, 0)}</div></div>
+    <div class="mini"><div class="tiny mut">Por día</div><div class="big">${diasR ? "U$S " + fmt((pre - tot) / diasR, 0) : "—"}</div><div class="tiny mut">${diasR ? `${diasR} días que quedan` : "viaje terminado"}</div></div></div>
+  <div class="mbar" style="margin-bottom:12px"><i style="width:${p * 100}%;${p > 0.9 ? "background:linear-gradient(90deg,#F59E0B,#DC2626)" : ""}"></i></div>
+  <div class="msg verde" style="margin-bottom:12px"><span class="e">💳</span><span>Pagá con la <b>${esc(best)}</b>: no tiene recargo en el exterior. ${S.data.tarjetas.filter(t => recargoExt(t) > 0).map(t => `La ${esc(t.nombre)} cobra ${fmt(recargoExt(t) * 100, 2)}% extra.`).join(" ")}</span></div>
+  <div class="card"><h3>➕ Anotar un gasto</h3><div style="display:flex;gap:6px;flex-wrap:wrap"><input id="vgDes" placeholder="Qué fue" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:8px;padding:7px"><input id="vgUsd" type="number" placeholder="U$S" style="width:90px;border:1.5px solid var(--line);border-radius:8px;padding:7px">
+    <select id="vgMed" style="border:1.5px solid var(--line);border-radius:8px;padding:7px">${[best, ...S.data.tarjetas.map(t => t.nombre).filter(n => n !== best), "Efectivo (dólares)"].map(n => `<option>${esc(n)}</option>`).join("")}</select><button class="btn pri" id="vgAdd">Anotar</button></div>
+    <div class="tiny mut" style="margin-top:6px">Los gastos con tarjeta se suman al resumen que corresponde (con el recargo si la tarjeta lo cobra).</div></div>
+  <div class="card" style="margin-top:12px">${G.map(g => `<div class="gi"><span class="gic">${g.recargo ? "➕" : g.medio.startsWith("Efectivo") ? "💵" : "💳"}</span><div class="gtx"><b>${esc(g.desc)}</b><div class="tiny mut">${fmtDate(g.fecha)} · ${esc(g.medio)}</div></div><div class="gmo"><b>U$S ${fmt(g.usd, 2)}</b></div></div>`).join("") || '<div class="empty">Todavía no anotaron gastos</div>'}</div>
+  ${Object.keys(porT).length ? `<div class="card" style="margin-top:12px"><h3>🧾 Al volver: cómo se paga</h3>${Object.entries(porT).map(([t, u]) => `<div class="rowbar"><span class="n">${esc(t)}</span><span class="v">U$S ${fmt(u, 2)}</span></div>`).join("")}
+    <div class="small" style="margin-top:8px">Pagá los dólares en dólares para no perder con el cambio.${santa && porT[santa.nombre] ? ` Si no llegan, lo de la ${esc(santa.nombre)} se puede refinanciar de ${santa.refin.min} a ${santa.refin.max} cuotas al ${fmt(santa.refin.tea * 100, 0)}% anual: 12 cuotas serían unos U$S ${fmt(anualidad(mTasa(santa.refin.tea), 12, porT[santa.nombre]), 2)} por mes.` : ""}</div></div>` : ""}
+  <button class="btn sm" id="vjFin" style="margin-top:12px">Terminar y borrar el viaje</button>`;
+}
+function bindViaje(root) {
+  const d = S.data;
+  const c = $("#vjCrear"); c && (c.onclick = () => { const n = $("#vjNom").value.trim(), p = +$("#vjPre").value, a = $("#vjDes").value, b = $("#vjHas").value; if (!n || !p || !a || !b) { toast("Completá todo"); return; } d.viaje = { id: "v" + Date.now(), nombre: n, presupuesto: p, desde: a, hasta: b, efectivo: [] }; commit("✈️ Viaje creado"); });
+  const g = $("#vgAdd"); g && (g.onclick = () => {
+    const desc = $("#vgDes").value.trim(), u = +$("#vgUsd").value, med = $("#vgMed").value, f = todayISO(); if (!desc || !u) { toast("Poné qué fue y cuánto"); return; }
+    if (med.startsWith("Efectivo")) d.viaje.efectivo.push({ fecha: f, desc, usd: u });
+    else {
+      const t = d.tarjetas.find(x => x.nombre === med), res = resumenDe9(med, f);
+      t.compras.push({ fecha: f, comercio: desc, moneda: "USD", total: u, cuotas: 1, cuotaInicial: 1, resumen: res, categoria: "Viaje", persona: S.user ? S.user.nombre : "", viaje: d.viaje.id });
+      const r = recargoExt(t); if (r) t.compras.push({ fecha: f, comercio: `Recargo exterior ${fmt(r * 100, 2)}% (${desc})`, moneda: "USD", total: Math.round(u * r * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: res, categoria: "Cargos bancarios", persona: "", viaje: d.viaje.id });
+    }
+    commit("✔ Anotado");
+  });
+  const fin = $("#vjFin"); fin && (fin.onclick = () => { if (confirm("¿Terminar el viaje? Los gastos quedan en las tarjetas.")) { d.viaje = null; commit("Viaje terminado"); } });
+}
+
+// ---------- 4) GESTIONES
+const ESTADOS_G = ["Esperando", "Cumplido", "No cumplido"];
+function gestiones9() { migrar9(); const hoy = todayISO(); return S.data.gestiones.map((g, i) => Object.assign({ i, revisar: g.estado === "Esperando" && g.cuando && g.cuando <= hoy }, g)); }
+function gestionesTexto() { return gestiones9().map(g => `- ${g.titulo} (${g.empresa}, ${g.fecha}${g.numero ? ", gestión N° " + g.numero : ""}): estado ${g.revisar ? "REVISAR AHORA" : g.estado}. Verificar: ${g.verificar}${g.cuando ? ` (desde ${g.cuando})` : ""}`).join("\n") || "- (ninguna)"; }
+function vGestiones() {
+  const G = gestiones9(), E2 = S._gEdit;
+  return header("📋 Gestiones", "Bajas, reclamos y trámites: con su número y qué revisar después para confirmar que se cumplieron.", false) + `
+  <div class="card">${G.map(g => `<div class="czi ${g.estado === "Cumplido" ? "ok" : ""}"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><b>${esc(g.titulo)}</b> ${g.revisar ? '<span class="pill amber">🔎 Revisar ahora</span>' : g.estado === "Cumplido" ? '<span class="pill green">✅ Cumplido</span>' : g.estado === "No cumplido" ? '<span class="pill red">⚠️ No se cumplió</span>' : '<span class="pill blue">⏳ Esperando</span>'}
+      <div class="tiny mut">${esc(g.empresa)} · ${fmtDate(g.fecha)} · ${g.numero ? "gestión N° " + esc(g.numero) : "sin número de gestión"}</div></div></div>
+    <div class="small" style="margin-top:6px">🔎 ${esc(g.verificar)}${g.cuando ? ` <span class="mut">(revisar desde el ${fmtDate(g.cuando)})</span>` : ""}</div>${g.nota ? `<div class="tiny mut">${esc(g.nota)}</div>` : ""}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><select data-gest="${g.i}" style="border:1.5px solid var(--line);border-radius:8px;padding:5px">${ESTADOS_G.map(e => `<option ${e === g.estado ? "selected" : ""}>${e}</option>`).join("")}</select><button class="btn sm" data-gnum="${g.i}">✏️ Número</button><button class="btn sm" data-gdel9="${g.i}">🗑</button></div></div>`).join("") || '<div class="empty">No hay gestiones</div>'}
+  <div class="small" style="margin-top:14px"><b>Nueva gestión</b></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input id="gnTit" placeholder="Qué pediste" style="flex:1;min-width:160px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><input id="gnEmp" placeholder="Empresa" style="width:120px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><input id="gnNum" placeholder="N° de gestión" style="width:120px;border:1.5px solid var(--line);border-radius:8px;padding:6px"></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input id="gnVer" placeholder="Qué revisar para confirmar" style="flex:1;min-width:200px;border:1.5px solid var(--line);border-radius:8px;padding:6px"><input id="gnCua" type="date" style="border:1.5px solid var(--line);border-radius:8px;padding:5px"><button class="btn sm pri" id="gnAdd">➕ Agregar</button></div></div>
+  <div class="tiny mut" style="margin-top:8px">Si le pasás al asesor el PDF del resumen, revisa solo las gestiones pendientes. Si algo no se cumplió, el Cazador de cargos te arma el guion para reclamar.</div>`;
+}
+function bindGestiones(root) {
+  const d = S.data;
+  root.querySelectorAll("[data-gest]").forEach(s => s.onchange = () => { d.gestiones[+s.dataset.gest].estado = s.value; commit(s.value === "Cumplido" ? "🎉 ¡Cumplido!" : "Guardado"); });
+  root.querySelectorAll("[data-gnum]").forEach(b => b.onclick = () => { const g = d.gestiones[+b.dataset.gnum], n = prompt("Número de gestión", g.numero || ""); if (n !== null) { g.numero = n.trim(); commit("Guardado"); } });
+  root.querySelectorAll("[data-gdel9]").forEach(b => b.onclick = () => { if (confirm("¿Borrar esta gestión?")) { d.gestiones.splice(+b.dataset.gdel9, 1); commit("🗑 Borrada"); } });
+  const a = $("#gnAdd"); a && (a.onclick = () => { const t = $("#gnTit").value.trim(); if (!t) { toast("Poné qué pediste"); return; } d.gestiones.push({ id: Math.random().toString(36).slice(2, 9), titulo: t, empresa: $("#gnEmp").value.trim(), numero: $("#gnNum").value.trim(), fecha: todayISO(), verificar: $("#gnVer").value.trim(), cuando: $("#gnCua").value || null, estado: "Esperando" }); commit("➕ Gestión agregada"); });
+}
+
+// ---------- 5) PLANES DE CELULAR E INTERNET
+const RX_TEL = /celular|internet|antel|movistar|claro|tel[eé]fono|fibra/i;
+async function buscarWeb(prompt) {
+  const c = S.data.config, model = await geminiModel();
+  const body = { contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2, maxOutputTokens: 8192 } };
+  const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(c.geminiKey)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, 90000);
+  const j = await r.json(); if (!r.ok) throw new Error(j.error ? j.error.message : "Error de Gemini");
+  return (((j.candidates || [])[0] || {}).content || {}).parts ? j.candidates[0].content.parts.map(p => p.text || "").join("") : "";
+}
+function planesHTML() {
+  const F = S.data.fijos.filter(f => RX_TEL.test(f.nombre) && !(f.hasta && f.hasta < todayKey())); if (!F.length) return "";
+  const tot = F.reduce((s, f) => s + uyuEq(f.moneda, +f.monto || 0), 0), P = S.data.planesIA;
+  return `<div class="card" style="margin-top:16px"><h3>📱 Planes de celular e internet <span class="hint">${money(tot)}/mes · ${money(tot * 12)}/año</span></h3>
+    ${F.map((f, i) => `<div class="rowbar" style="align-items:center"><span class="n">${esc(f.nombre)}</span><span class="v">${money(+f.monto || 0)}</span><input data-tuso="${esc(f.nombre)}" value="${esc(f.uso || "")}" placeholder="uso (ej: 20 GB, solo WhatsApp)" style="width:170px;border:1.5px solid var(--line);border-radius:8px;padding:5px;font-size:12px"></div>`).join("")}
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn pri sm" id="plBus">🔎 Buscar planes más baratos</button><span class="tiny mut" style="align-self:center">Completá el uso de cada línea para una mejor comparación.</span></div>
+    ${P ? `<div class="czg" style="margin-top:10px"><div class="tiny mut">Búsqueda del ${fmtDate(P.fecha)} · verificá precios y condiciones con cada empresa antes de cambiar</div>${mdLite(P.texto)}</div>` : ""}</div>`;
+}
+function bindPlanes(root) {
+  root.querySelectorAll("[data-tuso]").forEach(i => i.onchange = () => { const f = S.data.fijos.find(x => x.nombre === i.dataset.tuso); if (f) { f.uso = i.value.trim(); save(); } });
+  const b = $("#plBus"); b && (b.onclick = async () => {
+    if (!hasKey()) { toast("Falta la clave de Gemini"); return; }
+    b.disabled = true; b.textContent = "Buscando planes…";
+    const F = S.data.fijos.filter(f => RX_TEL.test(f.nombre) && !(f.hasta && f.hasta < todayKey()));
+    try {
+      const t = await buscarWeb(`Buscá en internet los planes VIGENTES hoy (${todayISO()}) en Uruguay de Antel, Movistar y Claro (celular prepago y contrato, planes familiares, internet hogar fibra) y compará con lo que paga esta familia:\n${F.map(f => `- ${f.nombre}: $ ${f.monto} por mes${f.uso ? `, uso: ${f.uso}` : ""}`).join("\n")}\nDecime en viñetas cortas con emoji: 1) por cada línea, si hay un plan que les sirva por menos y cuánto ahorran por mes (con el nombre exacto del plan y la empresa), 2) si conviene juntar líneas en un plan familiar o combo con internet, 3) el ahorro total por año. Solo planes que encuentres en fuentes oficiales. Si una línea parece cara para su uso (por ejemplo la más cara), decilo. Español de Uruguay, sin tablas.`);
+      S.data.planesIA = { fecha: todayISO(), texto: t }; commit("📱 Listo: mirá la comparación");
+    } catch (e) { toast(e.message); b.disabled = false; b.textContent = "🔎 Buscar planes más baratos"; }
+  });
+}
+
+// ---------- AVISOS, CONTEXTO DEL CHAT Y ACCIONES
+function avisos9() {
+  const out = [], hoy = todayISO();
+  try { gestiones9().filter(g => g.revisar).forEach(g => out.push({ tipo: "info", txt: `📋 Revisá la gestión "${g.titulo}": ${g.verificar}` })); } catch (e) { }
+  S.data.tarjetas.forEach(t => { const p = t.pagoPlan; if (p && p.fecha >= hoy && (new Date(p.fecha) - new Date(hoy)) / 864e5 <= 3) out.push({ tipo: "naranja", txt: `💳 El ${fmtDate(p.fecha)} pensabas pagar ${money(p.monto)} de la ${t.nombre}.` }); });
+  try { provisiones9().filter(x => x.mesesHasta <= 1 && x.juntado < x.prox.v).forEach(x => out.push({ tipo: "naranja", txt: `🗓️ ${x.nombre}: ${money(x.prox.v)} en ${E.mesLargo(x.prox.m)} y llevan juntado ${money(x.juntado)}.` })); } catch (e) { }
+  return out;
+}
+function contexto9() {
+  let P = ""; try { P = provisiones9().map(x => `- ${x.nombre}: ${money(x.prox.v)} en ${x.prox.m} (${x.veces} veces/año), juntado ${money(x.juntado)}, separar ${money(x.porMes)}/mes`).join("\n"); } catch (e) { }
+  return `## Gastos que se vienen (no mensuales)\n${P || "-"}\n\n## Viaje\n${viajeTexto()}\n\n## Gestiones (bajas, reclamos, trámites)\n${gestionesTexto()}`;
+}
+const REGLAS9 = `PDF O FOTO DEL BANCO: si mandan un detalle de tarjeta o estado de cuenta, compará con "Tarjetas" del contexto: decí qué cambió (pagos que no estaban, saldo que falta pagar, VENCIMIENTO HOY o vencido = alerta en negrita), y proponé {"tipo":"estado_tarjeta","tarjeta":"nombre exacto","resumen":"YYYY-MM (mes del cierre)","pagadoUYU":0,"pagadoUSD":0,"totalUYU":0,"totalUSD":0}. Cargos nuevos (comisiones, seguros, cuotas) → compra_tarjeta. Si ves algo que confirma o contradice una de las "Gestiones", decilo y proponé {"tipo":"gestion_estado","titulo":"","estado":"Cumplido|No cumplido"}.
+FACTURAS (UTE, OSE, Antel, etc.): proponé {"tipo":"factura_servicio","nombre":"nombre del gasto fijo","monto":0,"vence":"YYYY-MM-DD"} y si trae multa o recargo por mora, decilo.
+PAGO PARCIAL: si dicen que pagaron solo una parte o el mínimo de una tarjeta, proponé {"tipo":"pago_parcial","tarjeta":"","resumen":"YYYY-MM","pagado":0,"fechaPago":"YYYY-MM-DD o vacío"} (pagado = total pagado de ese resumen en pesos). Recordá que pagar menos del mínimo deja la tarjeta en mora.
+GESTIONES: si cuentan que pidieron una baja, un reclamo o un trámite, proponé {"tipo":"gestion","titulo":"","empresa":"","numero":"","verificar":"qué revisar para confirmar","cuando":"YYYY-MM-DD"}.
+VIAJE: usá "Viaje" para responder cuánto les queda y recomendá siempre la tarjeta sin recargo en el exterior. GASTOS QUE SE VIENEN: usalo para avisar con tiempo y decir cuánto separar por mes.`;
+
+function desc9(a) {
+  const mo = a.moneda === "USD" ? "U$S " : "$ ";
+  if (a.tipo === "estado_tarjeta") return `🏦 Actualizar <b>${esc(a.tarjeta)}</b> · resumen ${a.resumen ? E.mesLargo(a.resumen) : "?"} · pagado $ ${fmt(+a.pagadoUYU || 0, 2)}${+a.pagadoUSD ? " y U$S " + fmt(+a.pagadoUSD, 2) : ""}${+a.totalUYU ? ` · total del banco $ ${fmt(+a.totalUYU, 2)}` : ""}`;
+  if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); return `🧾 <b>${esc(f ? f.nombre : a.nombre)}</b> · $ ${fmt(+a.monto || 0, 0)}${a.vence ? " · vence " + fmtDate(a.vence) : ""}${f ? "" : ' <span class="pill red">no lo encuentro</span>'}`; }
+  if (a.tipo === "pago_parcial") return `💳 <b>${esc(a.tarjeta)}</b> · pagaste $ ${fmt(+a.pagado || 0, 0)} del resumen ${a.resumen ? E.mesLargo(a.resumen) : "?"} · el resto pasa al siguiente con interés${a.fechaPago ? " · lo pagás el " + fmtDate(a.fechaPago) : ""}`;
+  if (a.tipo === "gestion") return `📋 Nueva gestión: <b>${esc(a.titulo || "")}</b>${a.empresa ? " · " + esc(a.empresa) : ""}${a.numero ? " · N° " + esc(a.numero) : ""}`;
+  if (a.tipo === "gestion_estado") return `📋 <b>${esc(a.titulo || "")}</b> → ${esc(a.estado || "")}`;
+  return null;
+}
+function aplicar9(a) {
+  const d = S.data;
+  if (a.tipo === "estado_tarjeta") {
+    const t = d.tarjetas.find(x => x.nombre === a.tarjeta); if (!t || !a.resumen) return false;
+    t.pagos[a.resumen] = { uyu: +a.pagadoUYU || 0, usd: +a.pagadoUSD || 0 };
+    const ci = cardCI(t.nombre), r = ci && ci.res.find(x => x.mes === a.resumen);
+    if (r && +a.totalUYU && Math.abs(+a.totalUYU - r.totUYU) > 1) t.compras.push({ fecha: todayISO(), comercio: `Ajuste resumen ${E.mesLargo(a.resumen)} (según el banco)`, moneda: "UYU", total: Math.round((+a.totalUYU - r.totUYU) * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: a.resumen, categoria: "Otros", persona: "" });
+    if (r && +a.totalUSD && Math.abs(+a.totalUSD - r.totUSD) > 0.01) t.compras.push({ fecha: todayISO(), comercio: `Ajuste resumen ${E.mesLargo(a.resumen)} en dólares (según el banco)`, moneda: "USD", total: Math.round((+a.totalUSD - r.totUSD) * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: a.resumen, categoria: "Otros", persona: "" });
+    return true;
+  }
+  if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); if (!f) return false; if (+a.monto > 0 && f.moneda !== "USD") f.monto = +a.monto; if (a.vence) f.dia = +a.vence.slice(8, 10); return true; }
+  if (a.tipo === "pago_parcial") return !!pagoParcial({ tarjeta: a.tarjeta, resumen: a.resumen, pagado: +a.pagado || 0, fechaPago: a.fechaPago || null });
+  if (a.tipo === "gestion") { migrar9(); d.gestiones.push({ id: Math.random().toString(36).slice(2, 9), titulo: a.titulo || "Gestión", empresa: a.empresa || "", numero: a.numero || "", fecha: todayISO(), verificar: a.verificar || "", cuando: a.cuando || null, estado: "Esperando" }); return true; }
+  if (a.tipo === "gestion_estado") { const g = (d.gestiones || []).find(x => sinTilde(x.titulo).includes(sinTilde(a.titulo || "").slice(0, 12))); if (!g) return false; g.estado = ESTADOS_G.includes(a.estado) ? a.estado : g.estado; return true; }
+  return undefined;
+}
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [vTarjetas, bindTarjetas], proyeccion: [vProyeccion],
+  panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [vIngresos, bindIngresos], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
-  pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [vCazador, bindCazador], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
+  pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
 function shell() {
   const pend = (S.data.pendientes || []).filter(p => !p.hecho).length;
