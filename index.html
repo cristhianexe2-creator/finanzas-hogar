@@ -3511,7 +3511,7 @@ const REGLAS9 = `PDF O FOTO DEL BANCO: si mandan un detalle de tarjeta o estado 
 FACTURAS (UTE, OSE, Antel, etc.): proponé {"tipo":"factura_servicio","nombre":"nombre del gasto fijo","monto":0,"vence":"YYYY-MM-DD"} y si trae multa o recargo por mora, decilo.
 PAGO PARCIAL: si dicen que pagaron solo una parte o el mínimo de una tarjeta, proponé {"tipo":"pago_parcial","tarjeta":"","resumen":"YYYY-MM","pagado":0,"fechaPago":"YYYY-MM-DD o vacío"} (pagado = total pagado de ese resumen en pesos). Recordá que pagar menos del mínimo deja la tarjeta en mora.
 GESTIONES: si cuentan que pidieron una baja, un reclamo o un trámite, proponé {"tipo":"gestion","titulo":"","empresa":"","numero":"","verificar":"qué revisar para confirmar","cuando":"YYYY-MM-DD"}.
-VIAJE: usá "Viaje" para responder cuánto les queda y recomendá siempre la tarjeta sin recargo en el exterior. GASTOS QUE SE VIENEN: usalo para avisar con tiempo y decir cuánto separar por mes.`;
+${reglasSueldo()}\nVIAJE: usá "Viaje" para responder cuánto les queda y recomendá siempre la tarjeta sin recargo en el exterior. GASTOS QUE SE VIENEN: usalo para avisar con tiempo y decir cuánto separar por mes.`;
 
 function desc9(a) {
   const mo = a.moneda === "USD" ? "U$S " : "$ ";
@@ -3519,6 +3519,7 @@ function desc9(a) {
   if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); return `🧾 <b>${esc(f ? f.nombre : a.nombre)}</b> · $ ${fmt(+a.monto || 0, 0)}${a.vence ? " · vence " + fmtDate(a.vence) : ""}${f ? "" : ' <span class="pill red">no lo encuentro</span>'}`; }
   if (a.tipo === "pago_parcial") return `💳 <b>${esc(a.tarjeta)}</b> · pagaste $ ${fmt(+a.pagado || 0, 0)} del resumen ${a.resumen ? E.mesLargo(a.resumen) : "?"} · el resto pasa al siguiente con interés${a.fechaPago ? " · lo pagás el " + fmtDate(a.fechaPago) : ""}`;
   if (a.tipo === "gestion") return `📋 Nueva gestión: <b>${esc(a.titulo || "")}</b>${a.empresa ? " · " + esc(a.empresa) : ""}${a.numero ? " · N° " + esc(a.numero) : ""}`;
+  if (a.tipo === "recibo_sueldo") return descRecibo(a);
   if (a.tipo === "gestion_estado") return `📋 <b>${esc(a.titulo || "")}</b> → ${esc(a.estado || "")}`;
   return null;
 }
@@ -3535,8 +3536,28 @@ function aplicar9(a) {
   if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); if (!f) return false; if (+a.monto > 0 && f.moneda !== "USD") f.monto = +a.monto; if (a.vence) f.dia = +a.vence.slice(8, 10); return true; }
   if (a.tipo === "pago_parcial") return !!pagoParcial({ tarjeta: a.tarjeta, resumen: a.resumen, pagado: +a.pagado || 0, fechaPago: a.fechaPago || null });
   if (a.tipo === "gestion") { migrar9(); d.gestiones.push({ id: Math.random().toString(36).slice(2, 9), titulo: a.titulo || "Gestión", empresa: a.empresa || "", numero: a.numero || "", fecha: todayISO(), verificar: a.verificar || "", cuando: a.cuando || null, estado: "Esperando" }); return true; }
+  if (a.tipo === "recibo_sueldo") return aplicarRecibo(a);
   if (a.tipo === "gestion_estado") { const g = (d.gestiones || []).find(x => sinTilde(x.titulo).includes(sinTilde(a.titulo || "").slice(0, 12))); if (!g) return false; g.estado = ESTADOS_G.includes(a.estado) ? a.estado : g.estado; return true; }
   return undefined;
+}
+
+// ---------- 6) RECIBO DE SUELDO
+function reglasSueldo() { return `RECIBO DE SUELDO: si mandan un recibo de sueldo (foto o PDF), leé el líquido a cobrar, la fecha de cobro, de quién es (persona: Cristhian o Melyna), el mes liquidado y los descuentos. Proponé {"tipo":"recibo_sueldo","persona":"","tipoMov":"Sueldo|Aguinaldo|SRV|Licencia","fechaCobro":"YYYY-MM-DD","mesLiquidado":"YYYY-MM","nominal":0,"liquido":0,"retenciones":[{"nombre":"","monto":0}],"actualizarEstimado":false}. Si no dice la fecha de cobro, usá el día de cobro habitual del mes siguiente al liquidado. En la respuesta: compará el líquido con el ingreso estimado de esa persona en "Ingresos" (si cambia más de 3%, decilo y poné actualizarEstimado true), y compará los descuentos de préstamos (BROU, etc.) con "Préstamos": si una cuota descontada no coincide o aparece un descuento nuevo, avisalo.`; }
+function descRecibo(a) {
+  const mes = (a.fechaCobro || todayISO()).slice(0, 7), ya = S.data.movimientos.find(m => m.tipo === (a.tipoMov || "Sueldo") && m.persona === a.persona && (m.fecha || "").slice(0, 7) === mes);
+  return `💵 <b>${esc(a.tipoMov || "Sueldo")} de ${esc(a.persona || "?")}</b> · líquido $ ${fmt(+a.liquido || 0, 0)} · cobro ${a.fechaCobro ? fmtDate(a.fechaCobro) : "?"}${a.mesLiquidado ? ` · liquidación de ${E.mesLargo(a.mesLiquidado)}` : ""}${ya ? ` <span class="pill amber">reemplaza el cargado ($ ${fmt(+ya.monto, 0)})</span>` : ""}${a.actualizarEstimado ? " · actualiza el estimado de los próximos meses" : ""}`;
+}
+function aplicarRecibo(a) {
+  const d = S.data, tipo = a.tipoMov || "Sueldo", liq = +a.liquido || 0, f = a.fechaCobro || todayISO(); if (!liq || !a.persona) return false;
+  const ig = d.ingresos.find(x => x.persona === a.persona && String(x.nombre).startsWith(tipo) && (!x.hasta || x.hasta >= f.slice(0, 7)) && (!x.desde || x.desde <= f.slice(0, 7))) || d.ingresos.find(x => x.persona === a.persona && String(x.nombre).startsWith(tipo));
+  const desc = `${tipo} ${a.persona}${a.mesLiquidado ? " (liquidación " + E.mesLargo(a.mesLiquidado) + ")" : ""} — recibo`;
+  const ret = (a.retenciones || []).filter(r => +r.monto).map(r => `${r.nombre}: $ ${fmt(+r.monto, 2)}`).join("; ");
+  const ya = d.movimientos.find(m => m.tipo === tipo && m.persona === a.persona && (m.fecha || "").slice(0, 7) === f.slice(0, 7));
+  if (ya) { ya.monto = liq; ya.fecha = f; ya.descripcion = desc; ya.nota = ret ? "Descuentos: " + ret : ya.nota; }
+  else aplicarAccion({ tipo: "movimiento", tipoMov: tipo, fecha: f, descripcion: desc, categoria: "Ingresos", persona: a.persona, moneda: "UYU", monto: liq, medio: ig ? ig.cuenta : "", cuotas: null });
+  if (ret) { const m = d.movimientos.find(x => x.tipo === tipo && x.persona === a.persona && x.fecha === f); if (m) m.nota = "Descuentos: " + ret + (+a.nominal ? ` · Nominal $ ${fmt(+a.nominal, 2)}` : ""); }
+  if (a.actualizarEstimado && ig && tipo === "Sueldo") { const sig = E.addM(f.slice(0, 7), 1); if (!ig.desde || ig.desde < sig) { const nuevo = Object.assign({}, ig, { desde: sig, monto: liq, nota: `Actualizado con el recibo del ${fmtDate(f)}.` }); ig.hasta = f.slice(0, 7); d.ingresos.push(nuevo); } else ig.monto = liq; }
+  return true;
 }
 
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
