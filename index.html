@@ -1451,6 +1451,8 @@ ${datosGraficos()}
 
 ${typeof contexto9 === "function" ? contexto9() : ""}
 
+${typeof contextoIRPF === "function" ? contextoIRPF() : ""}
+
 ## Condiciones de las tarjetas (exterior y refinanciación)
 ${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
 
@@ -1476,6 +1478,7 @@ Respondé SIEMPRE con un único objeto JSON: {"respuesta": "texto para mostrar (
 GRÁFICOS: si la pregunta se entiende mejor con un gráfico (comparar meses, categorías, evolución, cómo vienen), completá "grafico" con {"tipo":"barras|linea|torta","titulo":"","etiquetas":["..."],"series":[{"nombre":"","valores":[0]}]} usando SOLO números de "Datos para gráficos" o del contexto (en pesos, sin inventar). "torta" lleva una sola serie. Si no hace falta, "grafico": null.
 CÁLCULOS: si preguntan por un préstamo para pagar deudas, cuánto ahorran adelantando $X por mes o dónde poner una plata de una vez (aguinaldo, extra) y ese número exacto no está en "Deudas", respondé SOLO {"respuesta":"","acciones":[],"calculo":{"tipo":"consolidacion","monto":0,"tea":0,"plazo":0,"gastos":0,"cancelar":["nombre de deuda"]}} (o {"tipo":"extra","monto":0} o {"tipo":"pago_unico","monto":0}); "tea" en % anual (si no la dicen, poné 0 y la app supone 30%). La app calcula y te devuelve el resultado para que respondas con esos números.
 ${typeof REGLAS9 === "string" ? REGLAS9 : ""}
+${typeof reglasIRPF === "function" ? reglasIRPF() : ""}
 VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
@@ -1643,7 +1646,7 @@ async function sendChat(q, ver) {
     const raw = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
     let j = parseJSON(raw) || { respuesta: raw, acciones: [] };
     if (j.calculo && typeof j.calculo === "object" && typeof calculoChat === "function") {
-      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : j.calculo.tipo === "refinanciar" && typeof refinTexto === "function" ? refinTexto(j.calculo) : calculoChat(j.calculo);
+      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : j.calculo.tipo === "refinanciar" && typeof refinTexto === "function" ? refinTexto(j.calculo) : j.calculo.tipo === "sueldo" && typeof irpfTexto === "function" ? irpfTexto(j.calculo) : calculoChat(j.calculo);
       hist.push({ role: "model", parts: [{ text: raw }] });
       hist.push({ role: "user", parts: [{ text: "RESULTADO DEL CÁLCULO DE LA APP: " + res + "\nAhora respondé la pregunta original usando estos números (no pidas otro cálculo). Si ayuda, agregá un gráfico." }] });
       const raw2 = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
@@ -3560,10 +3563,95 @@ function aplicarRecibo(a) {
   return true;
 }
 
+// ===================== IRPF / NOMINAL → LÍQUIDO (Uruguay) =====================
+const IRPF_UY = {
+  anio: 2026, bpc: 6864,
+  franjas: [[0, 7, 0], [7, 10, 0.10], [10, 15, 0.15], [15, 30, 0.24], [30, 50, 0.25], [50, 75, 0.27], [75, 115, 0.31], [115, Infinity, 0.36]],
+  hijoMes: 11440, // 20 BPC anuales por hijo menor (100% atribuido)
+  jubil: 0.15, frl: 0.001
+};
+function irpfCfg() {
+  const c = (S.data.config.irpf = Object.assign({ fonasa: 6, hijos: 1, pctHijo: 50, fondoSol: 0, otras: 0 }, S.data.config.irpf || {}));
+  return c;
+}
+function irpfCalc(nominal, o) {
+  o = Object.assign({}, irpfCfg(), o || {});
+  const B = IRPF_UY.bpc, N = +nominal || 0;
+  const aport = N * IRPF_UY.jubil, fon = N * (+o.fonasa || 0) / 100, frl = N * IRPF_UY.frl;
+  const base = N > 10 * B ? N * 1.06 : N; // rentas > 10 BPC se incrementan 6%
+  let bruto = 0; const det = [];
+  IRPF_UY.franjas.forEach(([d, h, t]) => {
+    const lo = d * B, hi = h * B; if (base <= lo) return;
+    const tramo = Math.min(base, hi) - lo, v = tramo * t;
+    bruto += v; det.push({ desde: lo, hasta: hi, tasa: t, tramo, v });
+  });
+  const tasaDed = N <= 15 * B ? 0.14 : 0.08;
+  const sumaDed = aport + fon + frl + IRPF_UY.hijoMes * (+o.hijos || 0) * (+o.pctHijo || 0) / 100 + (+o.fondoSol || 0) + (+o.otras || 0);
+  const ded = sumaDed * tasaDed;
+  const irpf = Math.max(0, bruto - ded);
+  const marginal = (det.length ? det[det.length - 1].tasa : 0);
+  return { nominal: N, base, aport, fon, frl, bruto, tasaDed, sumaDed, ded, irpf, liquido: N - aport - fon - frl - irpf, marginal, det, o };
+}
+function irpfTexto(c) {
+  const r = irpfCalc(+c.nominal, c);
+  let t = `Nominal $ ${fmt(r.nominal)}${r.base !== r.nominal ? ` (para IRPF se incrementa 6% → $ ${fmt(r.base)})` : ""}.
+Aportes: jubilatorio 15% $ ${fmt(r.aport)}, FONASA ${r.o.fonasa}% $ ${fmt(r.fon)}, FRL 0,1% $ ${fmt(r.frl)}.
+IRPF por franjas: ${r.det.filter(x => x.tasa > 0).map(x => `${Math.round(x.tasa * 100)}% sobre $ ${fmt(x.tramo)} = $ ${fmt(x.v)}`).join("; ") || "no llega al mínimo no imponible"} → bruto $ ${fmt(r.bruto)}.
+Deducciones: $ ${fmt(r.sumaDed)} × ${Math.round(r.tasaDed * 100)}% = $ ${fmt(r.ded)} (hijos: ${r.o.hijos} al ${r.o.pctHijo}%).
+IRPF del mes ≈ $ ${fmt(r.irpf)}. Franja marginal: ${Math.round(r.marginal * 100)}%.
+LÍQUIDO ESTIMADO (antes de otros descuentos como préstamos, cuota sindical, etc.) ≈ $ ${fmt(r.liquido)}.`;
+  if (+c.extra) {
+    const r2 = irpfCalc(+c.nominal + +c.extra, c);
+    t += `\nSi ese mes se suma una partida de $ ${fmt(+c.extra)} nominal (ej. SRV): IRPF ≈ $ ${fmt(r2.irpf)} (+$ ${fmt(r2.irpf - r.irpf)}), líquido total ≈ $ ${fmt(r2.liquido)}; de la partida te quedan ≈ $ ${fmt(r2.liquido - r.liquido)}.`;
+  }
+  return t;
+}
+function contextoIRPF() {
+  const B = IRPF_UY.bpc, c = irpfCfg();
+  return `## IRPF y aportes (Uruguay ${IRPF_UY.anio}, BPC $ ${fmt(B)})
+Franjas mensuales: ${IRPF_UY.franjas.map(([d, h, t]) => `${h === Infinity ? "más de $ " + fmt(d * B) : "$ " + fmt(d * B) + "–" + fmt(h * B)}: ${Math.round(t * 100)}%`).join(" · ")}. Es progresivo: cada tasa se aplica solo a la parte del sueldo que cae en esa franja.
+Si el nominal supera 10 BPC ($ ${fmt(10 * B)}) se le suma 6% antes de aplicar las franjas.
+Aportes personales: jubilatorio 15%, FONASA (3% hasta 2,5 BPC; arriba 4,5% sin hijos ni cónyuge, 6% con hijos, 6,5% con cónyuge, 8% con hijos y cónyuge), FRL 0,1%.
+Deducciones: (aportes + FONASA + FRL + $ ${fmt(IRPF_UY.hijoMes)} por hijo a cargo —o la mitad si lo deducen los dos padres— + fondo de solidaridad) × 14% si el nominal es ≤ 15 BPC ($ ${fmt(15 * B)}) o × 8% si es mayor. Eso se resta del IRPF calculado.
+Partidas variables como el SRV (compromiso de gestión) se suman al nominal del mes en que se cobran: suben de franja ese mes y el IRPF de ese mes es mucho mayor (por eso el líquido del mes siguiente baja). Aguinaldo: se retiene IRPF a la tasa marginal del mes. A fin de año la DGI hace la liquidación anual: si te retuvieron de más, se puede pedir devolución.
+Datos guardados de Cristhian para el cálculo: FONASA ${c.fonasa}%, hijos a cargo ${c.hijos} deducidos al ${c.pctHijo}%. (Se pueden cambiar en Ingresos → Calculadora de sueldo.)`;
+}
+function reglasIRPF() {
+  return `IRPF Y SUELDO NOMINAL: si dan un monto NOMINAL (o preguntan cuánto les queda en mano, cuánto IRPF pagan, en qué franja están, cuánto les queda del SRV/aguinaldo/aumento), pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"sueldo","nominal":0,"extra":0}} ("extra" = partida que se suma ese mes, nominal, opcional; podés agregar "fonasa","hijos","pctHijo" si los dicen). Con el resultado explicá simple: franja, IRPF, aportes y líquido estimado, aclarando que el líquido real puede bajar por otros descuentos (préstamos BROU, etc.). Si quieren cargarlo como ingreso, usá el líquido estimado. Si en un recibo de sueldo ves el % de FONASA o la deducción por hijos, decilo para que lo actualicen en la calculadora.`;
+}
+function irpfHTML() {
+  const c = irpfCfg();
+  return `<div class="card" style="margin-top:16px"><h3>🧮 Calculadora de sueldo: nominal → líquido <span class="hint">IRPF ${IRPF_UY.anio} · BPC $ ${fmt(IRPF_UY.bpc)}</span></h3>
+  <div class="small" style="margin-bottom:8px">Poné el nominal y te muestra aportes, IRPF por franja y cuánto te queda. Con "Partida extra" ves qué pasa el mes que cobrás el SRV.</div>
+  <div class="grid g4">
+    <label class="small">Nominal del mes<input id="irN" type="number" inputmode="decimal" placeholder="ej. 80000"></label>
+    <label class="small">Partida extra (SRV, etc.)<input id="irX" type="number" inputmode="decimal" placeholder="0"></label>
+    <label class="small">FONASA %<select id="irF">${[3, 4.5, 6, 6.5, 8].map(v => `<option ${+c.fonasa === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+    <label class="small">Hijos a cargo / % que deducís<span style="display:flex;gap:6px"><input id="irH" type="number" min="0" value="${c.hijos}" style="width:60px"><select id="irP">${[50, 100].map(v => `<option ${+c.pctHijo === v ? "selected" : ""}>${v}</option>`).join("")}</select></span></label>
+  </div><div id="irOut" style="margin-top:10px"></div></div>`;
+}
+function bindIRPF(r) {
+  const $ = id => r.querySelector("#" + id); if (!$("irN")) return;
+  const go = () => {
+    const c = irpfCfg(); c.fonasa = +$("irF").value; c.hijos = +$("irH").value || 0; c.pctHijo = +$("irP").value;
+    const N = +$("irN").value, X = +$("irX").value || 0;
+    if (!N) { $("irOut").innerHTML = ""; return; }
+    const a = irpfCalc(N), b = X ? irpfCalc(N + X) : null;
+    const row = (l, v, cls) => `<div class="rowbar"><span class="n">${l}</span><span class="v ${cls || ""}">${money(v)}</span></div>`;
+    $("irOut").innerHTML = `<div class="grid ${b ? "g2" : ""}"><div>${b ? "<b>Mes normal</b>" : ""}
+      ${row("Aporte jubilatorio 15%", -a.aport)}${row("FONASA " + a.o.fonasa + "%", -a.fon)}${row("FRL 0,1%", -a.frl)}
+      ${row("IRPF (franja " + Math.round(a.marginal * 100) + "%)", -a.irpf)}${row("<b>Líquido estimado</b>", a.liquido, "pos")}</div>
+      ${b ? `<div><b>Mes con la partida extra</b>${row("Nominal total", b.nominal)}${row("IRPF (franja " + Math.round(b.marginal * 100) + "%)", -b.irpf)}${row("<b>Líquido estimado</b>", b.liquido, "pos")}${row("De la partida te quedan", b.liquido - a.liquido)}${row("IRPF extra por la partida", -(b.irpf - a.irpf), "neg")}</div>` : ""}</div>
+      <div class="small" style="margin-top:6px">Estimación: no incluye descuentos de préstamos, cuota sindical ni otras retenciones del recibo.</div>`;
+  };
+  ["irN", "irX", "irF", "irH", "irP"].forEach(id => $(id).addEventListener("input", go));
+  ["irF", "irH", "irP"].forEach(id => $(id).addEventListener("change", () => { go(); try { save("Datos de IRPF"); } catch (e) { } }));
+}
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
   panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], proyeccion: [vProyeccion],
-  fijos: [vFijos, bindFijos], ingresos: [vIngresos, bindIngresos], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
+  fijos: [vFijos, bindFijos], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
 function shell() {
