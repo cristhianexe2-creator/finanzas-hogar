@@ -1388,7 +1388,7 @@ function cargadoTarjetas() {
   return out.join("\n");
 }
 function listaRecurrentes() {
-  const f = (x, tipo) => `- [${tipo}] ${x.nombre} | ${x.moneda === "USD" ? "U$S" : "$"} ${x.monto} | ${x.frecuencia}${x.meses ? " (meses " + x.meses + ")" : ""} | desde ${x.desde || "siempre"}${x.hasta ? " hasta " + x.hasta : ""}`;
+  const f = (x, tipo) => `- [${tipo}] ${x.nombre} | ${x.moneda === "USD" ? "U$S" : "$"} ${x.monto} | ${x.frecuencia}${x.meses ? " (meses " + x.meses + ")" : ""} | desde ${x.desde || "siempre"}${x.hasta ? " hasta " + x.hasta : ""} | ${x.origen === "factura" ? "monto REAL (factura del " + (x.facturaFecha || "?") + ")" : "monto ESTIMADO (todavía sin factura real)"}`;
   return [...S.data.fijos.map(x => f(x, "fijo")), ...S.data.ingresos.map(x => f(x, "ingreso"))].join("\n");
 }
 function buscaRecurrente(a) {
@@ -1498,7 +1498,7 @@ Acciones posibles (proponelas SOLO cuando el usuario pide cargar, anotar, pagar,
 6) {"tipo":"puntos_saldo","programa":"soy|brou|bbva|pronto|pass","saldo":0}  — cuando dice cuántos puntos tiene hoy según el banco.
 7) {"tipo":"borrar_movimiento","id":"","descripcion":"","monto":0,"moneda":"UYU","fecha":"YYYY-MM-DD"}  — cuando pide borrar, eliminar, sacar o deshacer algo que ya está cargado (por ejemplo "borrá el árbol de navidad", "me equivoqué, sacalo"). Buscalo en "Últimos movimientos cargados" y usá su id EXACTO; copiá descripción, monto, moneda y fecha para que se vea qué se borra. Si hay varios que coinciden y no queda claro cuál, preguntá cuál (o proponé borrar solo el más reciente si dice "el último"). Si no lo encontrás, decilo.
 8) {"tipo":"editar_movimiento","id":"","descripcion":"","cambios":{"campo":"valor nuevo"}}  — cuando pide corregir algo ya cargado (monto, fecha, medio, cuotas, categoría, persona, descripción). Campos válidos en "cambios": fecha, descripcion, categoria, persona, moneda, monto, medio, cuotas.
-9) {"tipo":"ajustar_precio","lista":"fijos|ingresos","nombre":"","montoNuevo":0,"moneda":"UYU|USD","desde":"YYYY-MM"}  — cuando dice que algo fijo aumentó o bajó de precio, o que le cambió el sueldo (por ejemplo "UTE aumentó a 2.400", "el colegio sube a 19.000 desde marzo", "me aumentaron el sueldo a 65.000"). Usá el nombre EXACTO de "Gastos fijos e ingresos guardados". "desde" = mes desde el que rige el precio nuevo; si no lo dice, usá el mes actual (${todayKey()}). Los meses anteriores quedan con el precio viejo. Si no está claro cuál es, preguntá.
+9) {"tipo":"ajustar_precio","lista":"fijos|ingresos","nombre":"","montoNuevo":0,"moneda":"UYU|USD","desde":"YYYY-MM"}  — cuando dice que algo fijo aumentó o bajó de precio, o que le cambió el sueldo (por ejemplo "UTE aumentó a 2.400", "el colegio sube a 19.000 desde marzo", "me aumentaron el sueldo a 65.000"). Usá el nombre EXACTO de "Gastos fijos e ingresos guardados". "desde" = mes desde el que rige el precio nuevo; si no lo dice, usá el mes actual (${todayKey()}). Los meses anteriores quedan con el precio viejo. Si no está claro cuál es, preguntá. Si el monto nuevo sale de una factura, recibo o estado de cuenta que te pasaron, agregá "deFactura":true. AL EXPLICARLO, decí SIEMPRE si lo guardado era un monto ESTIMADO o el REAL de una factura anterior (lo dice la lista de "Gastos fijos e ingresos guardados") y cuánto cambia, por ejemplo: "Tenías cargado un ESTIMADO de $ 2.159; la factura real es $ 3.079 ($ 920 más). ¿Lo actualizo para que la app calcule con el monto real?" o "La factura anterior fue de $ 2.900 y esta es de $ 3.079 ($ 179 más)".
 10) {"tipo":"fijar_dia","nombre":"","dia":0}  — cuando dice qué día se le cobra o debita algo fijo ("Claude se cobra el 21", "Netflix me lo debitan el 19"). Usá el nombre de "Gastos fijos e ingresos guardados". La app lo guarda y lo usa en el calendario.
 FECHAS DE DÉBITO: si preguntan cuándo se cobra o debita algo (Netflix, Claude, UTE…), respondé con "Débitos automáticos": el día, la próxima fecha, el monto y en qué resumen de tarjeta entra y cuándo se paga. Si dice "DÍA DESCONOCIDO", decilo y pedí que te digan el día (y ofrecé guardarlo con fijar_dia). Si el día es "aprendido de 1 cargo", aclaralo como aproximado.
    - Para borrar o corregir NUNCA digas que ya lo hiciste ni que "no lo vas a tener en cuenta": la app lo hace cuando el usuario toca el botón de confirmar. En "respuesta" decí qué vas a borrar o cambiar y pedí que confirme.
@@ -1538,7 +1538,7 @@ function actSummary(a) {
   if (a.tipo === "puntos_saldo") return `⭐ Saldo de puntos ${esc(((S.data.programas || []).find(p => p.id === a.programa) || { nombre: a.programa }).nombre)}: <b>${fmt(+a.saldo || 0)}</b>`;
   if (a.tipo === "borrar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const x = m || a; return `🗑 Borrar <b>${esc(x.descripcion || "?")}</b> · ${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}${m && m.medio ? " · " + esc(m.medio) : ""} · <span class="mut">${x.fecha ? fmtDate(x.fecha) : ""}</span>${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
   if (a.tipo === "editar_movimiento") { const m = S.data.movimientos.find(x => x.id === a.id); const ch = Object.entries(a.cambios || {}).map(([k, v]) => `${esc(k)}: <s class="mut">${esc(m ? String(m[k] ?? "—") : "?")}</s> → <b>${esc(String(v))}</b>`).join(", "); return `✏️ Corregir <b>${esc(m ? m.descripcion : a.descripcion || "?")}</b> · ${ch}${m ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
-  if (a.tipo === "ajustar_precio") { const x = buscaRecurrente(a); const mo = (a.moneda || (x && x.moneda)) === "USD" ? "U$S " : "$ "; return `📈 <b>${esc(x ? x.nombre : a.nombre)}</b> · ${x ? `<s class="mut">${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}</s> → ` : ""}<b>${mo}${fmt(+a.montoNuevo || 0, 2)}</b> · <span class="mut">desde ${a.desde ? E.mesLargo(a.desde) : E.mesLargo(todayKey())}</span>${x ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
+  if (a.tipo === "ajustar_precio") { const x = buscaRecurrente(a); const mo = (a.moneda || (x && x.moneda)) === "USD" ? "U$S " : "$ "; const est = x && x.origen !== "factura"; return `📈 <b>${esc(x ? x.nombre : a.nombre)}</b> · ${x ? `<span class="tiny mut">${est ? "estimado" : "antes"}</span> <s class="mut">${(x.moneda === "USD" ? "U$S " : "$ ")}${fmt(+x.monto || 0, 2)}</s> → ` : ""}${a.deFactura ? `<span class="tiny mut">real</span> ` : ""}<b>${mo}${fmt(+a.montoNuevo || 0, 2)}</b>${x && +x.monto ? ` <span class="pill ${+a.montoNuevo > +x.monto ? "red" : "green"}">${+a.montoNuevo > +x.monto ? "+" : "−"}${mo}${fmt(Math.abs(+a.montoNuevo - +x.monto), 0)}</span>` : ""} · <span class="mut">desde ${a.desde ? E.mesLargo(a.desde) : E.mesLargo(todayKey())}</span>${x ? "" : ` <span class="pill red">no lo encuentro</span>`}`; }
   if (a.tipo === "fijar_dia" && typeof descFijarDia === "function") return descFijarDia(a);
   if (a.tipo === "meta") return `🎯 Meta <b>${esc(a.nombre)}</b> · ${mo}${fmt(+a.objetivo || 0)}${a.fecha ? " para " + fmtDate(a.fecha) : ""}`;
   return esc(JSON.stringify(a));
@@ -1591,7 +1591,7 @@ function renderChat() {
     <div class="fchips">${chips.map(q => `<button class="chip" data-fq="${esc(q)}">${esc(q)}</button>`).join("")}</div>
     ${S.adj.length ? `<div class="fadj">${S.adj.map((f, i) => `<span class="tag">📎 ${esc(f.name)} <a href="#" data-rmadj="${i}">✕</a></span>`).join(" ")}</div>` : ""}
     <div class="fin"><button class="icon-btn big" id="fcCam" title="Sacar foto a un ticket o factura">📷</button><button class="icon-btn big" id="fcAtt" title="Adjuntar ticket, foto o PDF">📎</button>${("webkitSpeechRecognition" in window || "SpeechRecognition" in window) ? `<button class="icon-btn big" id="fcMic" title="Hablar">🎤</button>` : ""}
-      <textarea id="fcIn" placeholder="Escribí o dictá… (Enter para enviar)">${esc(S._draft || "")}</textarea><button class="btn blue" id="fcSend">➤</button></div>`}</div>`;
+      <textarea id="fcIn" placeholder="${S.adj.length ? "Comentá qué es o qué querés hacer (opcional)… o tocá ➤ y lo reviso" : "Escribí o dictá… (Enter para enviar)"}">${esc(S._draft || "")}</textarea><button class="btn blue" id="fcSend">➤</button></div>`}</div>`;
   const log = $("#fcLog"); if (log) log.scrollTop = log.scrollHeight;
   bindChat(el);
 }
@@ -1639,7 +1639,7 @@ function dictar(btn, tin) {
 }
 async function sendChat(q, ver) {
   q = (q || "").trim(); if ((!q && !S.adj.length) || S.chatBusy) return;
-  if (!q) q = "Cargá lo que haya en este archivo";
+  let ver0 = ver; if (!q) { q = "Revisá este archivo: decime qué es, comentame lo importante y proponé qué cargar o actualizar en la app."; ver0 = ver || "Revisá este archivo"; } ver = ver0;
   const files = S.adj.splice(0);
   S.chat.push({ role: "user", text: ver || q, prompt: ver ? q : undefined, files: files.length ? files.map(f => f.name) : null });
   S._draft = ""; S.chatBusy = true; renderChat();
@@ -1686,10 +1686,10 @@ function aplicarAccion(a) {
   if (a.tipo === "ajustar_precio") {
     const lista = a.lista === "ingresos" ? d.ingresos : d.fijos; const x = buscaRecurrente(a); if (!x || !(+a.montoNuevo >= 0)) return false;
     const des = /^\d{4}-\d{2}$/.test(a.desde || "") ? a.desde : todayKey(); const ini = x.desde || d.config.mesInicio;
-    if (des <= ini) { x.monto = +a.montoNuevo; if (a.moneda) x.moneda = a.moneda; return true; }
+    if (des <= ini) { x.monto = +a.montoNuevo; if (a.moneda) x.moneda = a.moneda; if (a.deFactura) { x.origen = "factura"; x.facturaFecha = todayISO(); } return true; }
     const nuevo = Object.assign(JSON.parse(JSON.stringify(x)), { monto: +a.montoNuevo, desde: des, hasta: x.hasta || null });
-    if (a.moneda) nuevo.moneda = a.moneda; delete nuevo.formula;
-    nuevo.nota = `Precio nuevo desde ${E.mesLargo(des)} (antes ${x.moneda === "USD" ? "U$S " : "$ "}${fmt(+x.monto, 2)}).`;
+    if (a.moneda) nuevo.moneda = a.moneda; delete nuevo.formula; if (a.deFactura) { nuevo.origen = "factura"; nuevo.facturaFecha = todayISO(); } else delete nuevo.origen;
+    nuevo.nota = `${a.deFactura ? "Monto real según factura" : "Precio nuevo"} desde ${E.mesLargo(des)} (antes ${x.origen === "factura" ? "" : "estimado "}${x.moneda === "USD" ? "U$S " : "$ "}${fmt(+x.monto, 2)}).`;
     x.hasta = E.addM(des, -1); lista.push(nuevo); return true;
   }
   if (a.tipo === "borrar_movimiento") { const i = d.movimientos.findIndex(x => x.id === a.id); if (i < 0) return false; d.movimientos.splice(i, 1); return true; }
@@ -3516,7 +3516,7 @@ function contexto9() {
   return `## Gastos que se vienen (no mensuales)\n${P || "-"}\n\n## Viaje\n${viajeTexto()}\n\n## Gestiones (bajas, reclamos, trámites)\n${gestionesTexto()}`;
 }
 const REGLAS9 = `PDF O FOTO DEL BANCO: si mandan un detalle de tarjeta o estado de cuenta, compará con "Tarjetas" del contexto: decí qué cambió (pagos que no estaban, saldo que falta pagar, VENCIMIENTO HOY o vencido = alerta en negrita), y proponé {"tipo":"estado_tarjeta","tarjeta":"nombre exacto","resumen":"YYYY-MM (mes del cierre)","pagadoUYU":0,"pagadoUSD":0,"totalUYU":0,"totalUSD":0}. Cargos nuevos (comisiones, seguros, cuotas) → compra_tarjeta. Si ves algo que confirma o contradice una de las "Gestiones", decilo y proponé {"tipo":"gestion_estado","titulo":"","estado":"Cumplido|No cumplido"}.
-FACTURAS (UTE, OSE, Antel, etc.): proponé {"tipo":"factura_servicio","nombre":"nombre del gasto fijo","monto":0,"vence":"YYYY-MM-DD"} y si trae multa o recargo por mora, decilo.
+FACTURAS (UTE, OSE, Antel, etc.): proponé {"tipo":"factura_servicio","nombre":"nombre del gasto fijo","monto":0,"vence":"YYYY-MM-DD"} y si trae multa o recargo por mora, decilo. Si el monto es distinto al guardado, aclará si lo guardado era un ESTIMADO o el real de una factura anterior, y la diferencia.
 PAGO PARCIAL: si dicen que pagaron solo una parte o el mínimo de una tarjeta, proponé {"tipo":"pago_parcial","tarjeta":"","resumen":"YYYY-MM","pagado":0,"fechaPago":"YYYY-MM-DD o vacío"} (pagado = total pagado de ese resumen en pesos). Recordá que pagar menos del mínimo deja la tarjeta en mora.
 GESTIONES: si cuentan que pidieron una baja, un reclamo o un trámite, proponé {"tipo":"gestion","titulo":"","empresa":"","numero":"","verificar":"qué revisar para confirmar","cuando":"YYYY-MM-DD"}.
 ${reglasSueldo()}\nVIAJE: usá "Viaje" para responder cuánto les queda y recomendá siempre la tarjeta sin recargo en el exterior. GASTOS QUE SE VIENEN: usalo para avisar con tiempo y decir cuánto separar por mes.`;
@@ -3541,7 +3541,7 @@ function aplicar9(a) {
     if (r && +a.totalUSD && Math.abs(+a.totalUSD - r.totUSD) > 0.01) t.compras.push({ fecha: todayISO(), comercio: `Ajuste resumen ${E.mesLargo(a.resumen)} en dólares (según el banco)`, moneda: "USD", total: Math.round((+a.totalUSD - r.totUSD) * 100) / 100, cuotas: 1, cuotaInicial: 1, resumen: a.resumen, categoria: "Otros", persona: "" });
     return true;
   }
-  if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); if (!f) return false; if (+a.monto > 0 && f.moneda !== "USD") f.monto = +a.monto; if (a.vence) f.dia = +a.vence.slice(8, 10); return true; }
+  if (a.tipo === "factura_servicio") { const f = fijoPorNombre(a.nombre || ""); if (!f) return false; if (+a.monto > 0 && f.moneda !== "USD") { f.monto = +a.monto; f.origen = "factura"; f.facturaFecha = todayISO(); } if (a.vence) f.dia = +a.vence.slice(8, 10); return true; }
   if (a.tipo === "pago_parcial") return !!pagoParcial({ tarjeta: a.tarjeta, resumen: a.resumen, pagado: +a.pagado || 0, fechaPago: a.fechaPago || null });
   if (a.tipo === "gestion") { migrar9(); d.gestiones.push({ id: Math.random().toString(36).slice(2, 9), titulo: a.titulo || "Gestión", empresa: a.empresa || "", numero: a.numero || "", fecha: todayISO(), verificar: a.verificar || "", cuando: a.cuando || null, estado: "Esperando" }); return true; }
   if (a.tipo === "recibo_sueldo") return aplicarRecibo(a);
@@ -3915,6 +3915,33 @@ function alcanciaProgresoHTML() {
   return `<div class="grid g3" style="gap:8px;margin-top:10px"><div class="mini"><div class="tiny mut">🐷 En la alcancía (total)</div><div class="big" style="color:#15803D">${money(+A.total || 0)}</div></div><div class="mini"><div class="tiny mut">Guardado este mes</div><div class="big">${money(mes)}</div></div><div class="mini"><div class="tiny mut">Para guardar</div><div class="big" style="color:${pend ? "#EA580C" : "#0F172A"}">${money(pend)}</div>${pend ? `<button class="btn sm pri" id="alcPanelOk">✔ Ya lo guardé</button>` : ""}</div></div>
   ${A.hist.length ? `<div class="tiny mut" style="margin-top:8px">Últimos: ${A.hist.slice(0, 6).map(h => `${fmtDate(h.fecha)} ${money(h.monto)} (${esc(h.motivo)})`).join(" · ")}</div>` : ""}`;
 }
+
+// ===================== COMPARTIR DESDE ANDROID (Web Share Target) =====================
+async function recibirCompartido() {
+  if (!/[?&]compartido=1/.test(location.search) || !("caches" in window)) return;
+  try { history.replaceState(null, "", location.pathname); } catch (e) { }
+  let c, files = [], texto = "";
+  try {
+    c = await caches.open("fh-share");
+    for (const req of await c.keys()) {
+      const r = await c.match(req); if (!r) continue;
+      if (/\/texto$/.test(req.url)) { texto = await r.text(); continue; }
+      const blob = await r.blob(), nombre = decodeURIComponent(r.headers.get("X-Nombre") || "archivo");
+      files.push(new File([blob], nombre, { type: blob.type || r.headers.get("Content-Type") || "" }));
+    }
+    for (const k of await c.keys()) await c.delete(k);
+  } catch (e) { console.warn(e); }
+  if (!files.length && !texto) return;
+  // esperar a que carguen los datos (y la sesión) antes de abrir el asistente
+  for (let i = 0; i < 60 && !(S.data && S.R && typeof sendChat === "function" && !S.chatBusy); i++) await new Promise(r => setTimeout(r, 500));
+  try {
+    S.adj = []; for (const f of files.slice(0, 5)) S.adj.push(await fileToAdj(f));
+    if (texto) S._draft = texto;
+    S.chatOpen = true; renderChat();
+    setTimeout(() => { const i = document.getElementById("fcIn"); i && i.focus(); }, 100);
+  } catch (e) { console.warn(e); toast("No pude abrir el archivo compartido"); }
+}
+setTimeout(recibirCompartido, 800);
 
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
