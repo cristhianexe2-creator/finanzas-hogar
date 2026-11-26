@@ -808,7 +808,7 @@ const AV_ICON = { rojo: "🔴", verde: "🟢", naranja: "⚠️", amarillo: "�
 
 // ===================== PANTALLAS =====================
 const NAV = [
-  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
+  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["progreso", "🏆", "Mi progreso"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
   ["calendario", "📅", "Calendario"], ["proyeccion", "📈", "Proyección"], ["informes", "📑", "Informes"], ["wrapped", "🎁", "Tu 2026"], ["fijos", "🧾", "Gastos fijos"], ["ingresos", "💵", "Ingresos"],
   ["prestamos", "🏦", "Préstamos"], ["ahorro", "🐷", "Ahorro y metas"], ["pendientes", "✅", "Pendientes"], ["config", "⚙️", "Configuración"]
 ];
@@ -1453,6 +1453,8 @@ ${typeof contexto9 === "function" ? contexto9() : ""}
 
 ${typeof contextoIRPF === "function" ? contextoIRPF() : ""}
 
+${typeof contexto11 === "function" ? contexto11() : ""}
+
 ## Condiciones de las tarjetas (exterior y refinanciación)
 ${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
 
@@ -1479,6 +1481,7 @@ GRÁFICOS: si la pregunta se entiende mejor con un gráfico (comparar meses, cat
 CÁLCULOS: si preguntan por un préstamo para pagar deudas, cuánto ahorran adelantando $X por mes o dónde poner una plata de una vez (aguinaldo, extra) y ese número exacto no está en "Deudas", respondé SOLO {"respuesta":"","acciones":[],"calculo":{"tipo":"consolidacion","monto":0,"tea":0,"plazo":0,"gastos":0,"cancelar":["nombre de deuda"]}} (o {"tipo":"extra","monto":0} o {"tipo":"pago_unico","monto":0}); "tea" en % anual (si no la dicen, poné 0 y la app supone 30%). La app calcula y te devuelve el resultado para que respondas con esos números.
 ${typeof REGLAS9 === "string" ? REGLAS9 : ""}
 ${typeof reglasIRPF === "function" ? reglasIRPF() : ""}
+${typeof reglas11 === "function" ? reglas11() : ""}
 VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
@@ -1526,6 +1529,7 @@ const CHIPS = {
 };
 function actSummary(a) {
   if (typeof desc9 === "function") { const r9 = desc9(a); if (r9) return r9; }
+  if (typeof desc11 === "function") { const r11 = desc11(a); if (r11) return r11; }
   const mo = a.moneda === "USD" ? "U$S " : "$ ";
   if (a.tipo === "movimiento") return `${a.tipoMov && a.tipoMov !== "Gasto" ? "💰 " + a.tipoMov : "🧾"} <b>${esc(a.descripcion)}</b> · ${mo}${fmt(+a.monto || 0, 2)} · ${esc(a.medio || "¿medio?")}${a.cuotas > 1 ? " · " + a.cuotas + " cuotas" : ""} · <span class="mut">${fmtDate(a.fecha)}${a.categoria ? " · " + esc(a.categoria) : ""}</span>`;
   if (a.tipo === "compra_tarjeta") return `💳 <b>${esc(a.comercio)}</b> · cuota ${a.cuotaInicial}/${a.cuotas} de ${mo}${fmt(+a.valorCuota || 0, 2)} · ${esc(a.tarjeta)} · <span class="mut">resumen ${a.resumen ? E.mesCorto(a.resumen) : "?"}</span>`;
@@ -1669,6 +1673,7 @@ function editAccion(a) { modal("Revisar antes de cargar", ACT_F[a.tipo](), a, (v
 function aplicarAccion(a) {
   const d = S.data;
   if (typeof aplicar9 === "function") { const r9 = aplicar9(a); if (r9 !== undefined) return r9; }
+  if (typeof aplicar11 === "function") { const r11 = aplicar11(a); if (r11 !== undefined) return r11; }
   if (a.tipo === "movimiento") {
     const isC = L.isCard(a.medio);
     d.movimientos.unshift({ fecha: a.fecha || todayISO(), tipo: a.tipoMov || "Gasto", descripcion: a.descripcion || "Sin descripción", categoria: a.categoria || null, persona: a.persona || (S.user ? S.user.nombre : d.config.personas[0]), moneda: a.moneda || "UYU", monto: +a.monto, medio: a.medio, cuotas: isC ? (+a.cuotas || 1) : null });
@@ -3648,9 +3653,206 @@ function bindIRPF(r) {
   ["irF", "irH", "irP"].forEach(id => $(id).addEventListener("change", () => { go(); try { save("Datos de IRPF"); } catch (e) { } }));
 }
 
+// ===================== MI PROGRESO: hoy podés gastar · patrimonio · edad del dinero · reglas de ahorro · desafíos =====================
+const RX_DELIVERY = /delivery|pedidos ?ya|rappi|uber ?eats|mc ?donald|burger king|mostaza|subway|domino|pizza/i;
+
+// ---------- 1) Hoy podés gastar
+function hoyGastar() {
+  const r = ritmoMes(), d = r.dia, ant = d > 1 ? r.A[d - 2] : 0, hoy = r.A[d - 1] - ant;
+  const quedan = r.nd - d + 1, porDia = Math.max(0, (r.pres - ant) / quedan);
+  const disp = porDia - hoy, desdeMan = quedan > 1 ? Math.max(0, (r.pres - r.A[d - 1]) / (quedan - 1)) : 0;
+  const k = S.R.months.indexOf(r.m), p = S.R.proy[k] || {};
+  return { porDia, hoy, disp, desdeMan, quedan, pres: r.pres, fuente: r.fuente, llevo: r.A[d - 1], rojo: (p.J || 0) < 0 };
+}
+function hoyGastarHTML() {
+  if (S.mes !== todayKey()) return "";
+  const h = hoyGastar(), ok = h.disp >= 0;
+  const nuevo = (S._logroNuevo || []).map(l => `<div class="msg verde" style="margin-top:8px"><span class="e">🏅</span><span>¡Nuevo logro: <b>${esc(l)}</b>! <a href="#" data-go="progreso">Ver mis logros →</a></span></div>`).join("");
+  return `<div class="card" style="margin-top:16px;border:2px solid ${ok ? "#86EFAC" : "#FCA5A5"};background:${ok ? "linear-gradient(135deg,#F0FDF4,#fff)" : "linear-gradient(135deg,#FEF2F2,#fff)"}">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px"><div class="small mut">💸 ${ok ? "Hoy podés gastar" : "Hoy te pasaste"}</div>
+        <div style="font-size:34px;font-weight:800;color:${ok ? "#15803D" : "#DC2626"};line-height:1.1">${money(Math.abs(h.disp))}</div>
+        <div class="tiny mut">en compras del día a día (súper, delivery, salidas…), sin fijos ni cuotas</div></div>
+      <div class="small" style="min-width:200px">Hoy llevás <b>${money(h.hoy)}</b> de <b>${money(h.porDia)}</b><br>
+        ${ok ? `Si no lo usás, mañana tenés un poco más.` : `Desde mañana: <b>${money(h.desdeMan)}</b> por día para cerrar el mes en el objetivo.`}<br>
+        <span class="tiny mut">Objetivo del mes ${money(h.pres)} (${esc(h.fuente)}) · faltan ${h.quedan} días</span></div>
+    </div>
+    ${h.rojo ? `<div class="msg naranja" style="margin-top:8px"><span class="e">🟠</span><span>Este mes viene en rojo: si podés, gastá menos que esto y lo que sobre va a las deudas.</span></div>` : ""}${nuevo}
+  </div>`;
+}
+
+// ---------- 2) Patrimonio (sin casa ni auto: solo lo que se puede contar)
+function cfgProg() { return (S.data.config.progreso = Object.assign({ saldo: null, saldoFecha: null }, S.data.config.progreso || {})); }
+function patrimonio() {
+  const c = cfgProg(), ahorros = S.data.ahorro.reduce((s, a) => s + uyuEq(a.moneda || "UYU", +a.ahorrado || 0), 0);
+  const cuentas = +c.saldo || 0;
+  const prest = deudas().filter(x => x.tipo === "extra" || !/tarjeta/i.test(x.forma)).reduce((s, x) => s + x.saldo, 0);
+  const tarj = S.R.cards.reduce((s, ci) => s + Math.max(0, ci.usado || 0), 0);
+  const activos = ahorros + cuentas, deuda = prest + tarj;
+  return { ahorros, cuentas, prest, tarj, activos, deuda, neto: activos - deuda };
+}
+function snapshotProgreso() {
+  const P = patrimonio(), m = todayKey(), H = (S.data.progresoHist = S.data.progresoHist || {});
+  const e = edadDinero(), v = { a: Math.round(P.activos), d: Math.round(P.deuda), n: Math.round(P.neto), e: e.dias === null ? null : Math.round(e.dias) };
+  if (JSON.stringify(H[m]) !== JSON.stringify(v)) { H[m] = v; return true; }
+  return false;
+}
+function libreDePrestamos() {
+  const D = deudas().filter(x => x.tipo === "prestamo");
+  if (!D.length) return null;
+  const s = simDeudas(D, "actual", 0, 0); return { hasta: s.hasta, serie: s.serie, total: D.reduce((a, x) => a + x.saldo, 0) };
+}
+
+// ---------- 4) Edad del dinero (YNAB): cuántos días aguanta la plata que tenés al ritmo de gasto
+function edadDinero() {
+  const c = cfgProg(), k = S.R.months.indexOf(todayKey());
+  const I = [0, 1, 2].map(i => (S.R.proy[k + i] || {}).I).filter(v => v > 0);
+  const egr = I.length ? I.reduce((s, v) => s + v, 0) / I.length : (S.R.proy[k] || {}).I || 0;
+  const porDia = egr / 30;
+  if (c.saldo === null || c.saldo === "" || !(porDia > 0)) return { dias: null, porDia };
+  const dias = Math.max(0, (+c.saldo) / porDia);
+  const nivel = dias < 7 ? ["🔴", "Vivís al día: la plata entra y sale enseguida."] : dias < 15 ? ["🟠", "Arrancando: ya tenés unos días de aire."] : dias < 30 ? ["🟡", "Bien: falta poco para el mes de ventaja."] : ["🟢", "¡Meta lograda! Este mes gastás la plata del mes pasado."];
+  return { dias, porDia, nivel, viejo: c.saldoFecha && (Date.now() - new Date(c.saldoFecha).getTime()) > 10 * 864e5 };
+}
+
+// ---------- 3) Reglas de ahorro (se pausan solas mientras hay meses en rojo)
+function reglas() { return (S.data.reglasAhorro = S.data.reglasAhorro || []); }
+function reglasActivas() {
+  const k = S.R.months.indexOf(todayKey()), J = S.R.proy.slice(k, k + 4).map(p => p.J);
+  const rojo = J.some(v => v < 0);
+  return { on: !rojo, motivo: rojo ? `hay meses en rojo (${S.R.proy.slice(k, k + 4).filter(p => p.J < 0).map(p => E.mesCorto(p.mes)).join(", ")}): hoy cada peso va a cubrir eso y a las deudas` : "" };
+}
+function juntadoRegla(rg, m) {
+  const C = todasCompras(false).filter(c => c.fecha.slice(0, 7) === m);
+  if (rg.tipo === "redondeo") { const b = +rg.monto || 100; return C.reduce((s, c) => s + ((b - (c.v % b)) % b), 0); }
+  if (rg.tipo === "por_gasto") { const rx = new RegExp((rg.patron || "delivery").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); return C.filter(c => rx.test(c.desc) || rx.test(c.cat) || (/delivery/i.test(rg.patron || "") && RX_DELIVERY.test(c.desc))).length * (+rg.monto || 0); }
+  if (rg.tipo === "pct_extra") return S.data.movimientos.filter(mv => mv.fecha && mv.fecha.slice(0, 7) === m && /Aguinaldo|SRV|Licencia/.test(mv.tipo || "")).reduce((s, mv) => s + uyuEq(mv.moneda, +mv.monto || 0), 0) * (+rg.monto || 0) / 100;
+  if (rg.tipo === "fijo_mes") return +rg.monto || 0;
+  return 0;
+}
+function descRegla(rg) {
+  return rg.tipo === "redondeo" ? `Redondear cada compra a $ ${fmt(+rg.monto || 100)} y guardar la diferencia` : rg.tipo === "por_gasto" ? `Cada compra de "${esc(rg.patron || "delivery")}" → guardar $ ${fmt(+rg.monto || 0)}` : rg.tipo === "pct_extra" ? `${+rg.monto || 0}% de cada aguinaldo/SRV/licencia` : `$ ${fmt(+rg.monto || 0)} fijos por mes`;
+}
+
+// ---------- 5) Desafíos automáticos
+function diasSinGastoRacha() {
+  const lim = (() => { const x = new Date(Date.now() - 10 * 864e5); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); })();
+  if (!todasCompras(false).some(c => c.fecha >= lim)) return 0; // si no se está cargando nada, no cuenta como "sin gastos"
+  let n = 0, f = new Date(); f.setDate(f.getDate() - 1);
+  const cache = {};
+  for (let i = 0; i < 90; i++) {
+    const m = f.getFullYear() + "-" + String(f.getMonth() + 1).padStart(2, "0"); cache[m] = cache[m] || gastoDiario(m);
+    if (cache[m][f.getDate() - 1] > 0) break; n++; f.setDate(f.getDate() - 1);
+  }
+  return n;
+}
+function desafios() {
+  const hoy = todayISO(), m = todayKey(), k = S.R.months.indexOf(m), r = ritmoMes();
+  const C = todasCompras(false), hace7 = (() => { const x = new Date(Date.now() - 7 * 864e5); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); })();
+  const deliv7 = C.filter(c => c.fecha >= hace7 && c.fecha <= hoy && (RX_DELIVERY.test(c.desc) || /delivery/i.test(c.cat))).length;
+  const racha = diasSinGastoRacha();
+  const meta = r.pres / r.nd; let bajo = 0; for (let i = r.dia - 2; i >= 0; i--) { if (r.A[i] - (i ? r.A[i - 1] : 0) <= meta) bajo++; else break; }
+  const ant = S.R.proy[k - 1], H = S.data.progresoHist || {}, hm = H[m], ha = H[E.addM(m, -1)];
+  const intMes = S.data.tarjetas.some(t => (t.compras || []).some(c => RX_INT.test(c.comercio || "") && (c.resumen === m || (c.fecha || "").slice(0, 7) === m)));
+  const cargados = new Set(C.filter(c => c.fecha >= hace7).map(c => c.fecha)).size;
+  return [
+    { id: "sin_gasto_1", ic: "🌱", t: "Un día sin gastos", ok: racha >= 1, prog: `${racha} día${racha === 1 ? "" : "s"} seguidos sin compras`, meta: 1, v: racha },
+    { id: "sin_gasto_3", ic: "🌿", t: "3 días seguidos sin gastos", ok: racha >= 3, prog: `racha actual: ${racha}`, meta: 3, v: racha },
+    { id: "sin_delivery", ic: "🍳", t: "Una semana sin delivery", ok: deliv7 === 0, prog: deliv7 ? `${deliv7} pedido${deliv7 > 1 ? "s" : ""} en los últimos 7 días` : "0 pedidos en 7 días", meta: 1, v: deliv7 ? 0 : 1 },
+    { id: "bajo_obj_5", ic: "🎯", t: "5 días seguidos debajo del objetivo diario", ok: bajo >= 5, prog: `${bajo} de 5 días (máx. ${money(meta)} por día)`, meta: 5, v: bajo },
+    { id: "registro", ic: "📝", t: "Registrar gastos 5 de los últimos 7 días", ok: cargados >= 5, prog: `${cargados} de 7 días con algo cargado`, meta: 5, v: cargados },
+    { id: "sin_interes", ic: "🛡️", t: "Mes sin intereses de tarjeta", ok: !intMes, prog: intMes ? "este mes hay intereses o recargos en alguna tarjeta" : "ningún interés este mes", meta: 1, v: intMes ? 0 : 1 },
+    { id: "mes_verde", ic: "🟢", t: "Cerrar un mes en verde", ok: !!ant && ant.J >= 0, prog: ant ? `${E.mesLargo(ant.mes)}: ${money(ant.J)}` : "", meta: 1, v: ant && ant.J >= 0 ? 1 : 0 },
+    { id: "deuda_baja", ic: "📉", t: "La deuda bajó respecto al mes pasado", ok: !!(hm && ha && hm.d < ha.d), prog: hm && ha ? `${money(ha.d)} → ${money(hm.d)}` : "se mide desde el mes que viene", meta: 1, v: hm && ha && hm.d < ha.d ? 1 : 0 },
+    { id: "edad_15", ic: "⏳", t: "Plata con 15 días de edad", ok: (hm && hm.e >= 15), prog: hm && hm.e !== null ? `${hm.e} días` : "cargá el saldo de tus cuentas", meta: 15, v: hm && hm.e || 0 },
+    { id: "edad_30", ic: "🏆", t: "Un mes de ventaja (30 días)", ok: (hm && hm.e >= 30), prog: hm && hm.e !== null ? `${hm.e} de 30 días` : "", meta: 30, v: hm && hm.e || 0 }
+  ];
+}
+function actualizarLogros() {
+  const L = (S.data.logros = S.data.logros || {}), nuevos = [];
+  desafios().forEach(x => { if (x.ok && !L[x.id]) { L[x.id] = todayISO(); nuevos.push(x.ic + " " + x.t); } });
+  return nuevos;
+}
+// se llama al mostrar el Panel: guarda la foto del mes y los logros nuevos (sin re-renderizar)
+function tickProgreso() {
+  if (!S.R || !S.data || S._tickProg === todayISO() + (S.R.proy.length)) return;
+  try { const a = snapshotProgreso(), n = actualizarLogros(); if (n.length) S._logroNuevo = n; S._tickProg = todayISO() + S.R.proy.length; if (a || n.length) save(n.length ? "Nuevo logro" : ""); } catch (e) { console.warn(e); }
+}
+
+// ---------- Pantalla
+function vProgreso() {
+  tickProgreso(); S._logroNuevo = null;
+  const P = patrimonio(), c = cfgProg(), e = edadDinero(), L = libreDePrestamos(), RA = reglasActivas(), H = S.data.progresoHist || {}, D = desafios(), Lg = S.data.logros || {};
+  const hk = Object.keys(H).sort(), metas = S.data.ahorro;
+  const mesR = todayKey(), juntado = reglas().reduce((s, rg) => s + juntadoRegla(rg, mesR), 0), pasado = (S.data.reglasPasado || {})[mesR];
+  const serieL = L ? L.serie.slice(0, 72) : [];
+  return header("🏆 Mi progreso", "Lo que tenés, lo que debés, cuánto aire te da tu plata y tus logros. Se actualiza solo.", false) + `
+  <div class="grid g4">
+    <div class="card kpi k-green"><div class="lab">💰 Lo que tenés</div><div class="val">${money(P.activos)}</div><div class="foot">cuentas ${money(P.cuentas)} · ahorros ${money(P.ahorros)}</div></div>
+    <div class="card kpi k-red"><div class="lab">🏦 Lo que debés</div><div class="val">${money(P.deuda)}</div><div class="foot">préstamos ${money(P.prest)} · tarjetas ${money(P.tarj)}</div></div>
+    <div class="card kpi ${P.neto < 0 ? "k-red" : "k-blue"}"><div class="lab">📊 Patrimonio</div><div class="val ${P.neto < 0 ? "neg" : "pos"}">${money(P.neto)}</div><div class="foot">sin casa ni auto: solo plata contable</div></div>
+    <div class="card kpi k-violet"><div class="lab">⏳ Edad del dinero</div><div class="val">${e.dias === null ? "—" : Math.round(e.dias) + " días"}</div><div class="foot">${e.dias === null ? "cargá el saldo de tus cuentas" : e.nivel[0] + " " + e.nivel[1]}</div></div>
+  </div>
+  <div class="grid g21" style="margin-top:16px">
+    <div class="card"><h3>📉 Cómo baja la deuda</h3>
+      ${hk.length > 1 ? svgLines(hk.map(m => E.mesCorto(m)), [{ name: "Lo que debés", values: hk.map(m => H[m].d), color: "#DC2626", w: 3 }, { name: "Patrimonio", values: hk.map(m => H[m].n), color: "#2563EB" }], { h: 180 }) : `<div class="small mut">La app guarda una foto cada mes. Desde el mes que viene vas a ver acá cómo baja lo que debés.</div>`}
+      ${L ? `<div style="margin-top:12px"><b>Préstamos (sin las tarjetas)</b> — si seguís pagando las cuotas como hoy:</div>${svgLines(serieL.map((_, i) => i % 6 === 0 ? E.mesCorto(E.addM(todayKey(), i)) : ""), [{ name: "Saldo de préstamos", values: serieL.map(v => Math.round(v)), color: "#7C3AED", w: 3 }], { h: 160 })}<div class="msg verde"><span class="e">🎉</span><span>Quedás <b>libre de préstamos en ${E.mesLargo(L.hasta)}</b>. Cada pago extra adelanta esa fecha: mirá el <a href="#" data-go="deudas">Plan de deudas</a>.</span></div>` : ""}
+    </div>
+    <div class="card"><h3>⏳ Edad del dinero</h3>
+      <div class="small">Cuántos días aguanta la plata que tenés en las cuentas al ritmo de gasto de la casa (${money(e.porDia)} por día). La meta es <b>30 días</b>: gastar este mes lo que cobraste el mes pasado, sin depender del día de cobro.</div>
+      ${e.dias !== null ? barHTML(Math.min(1, e.dias / 30), e.dias >= 30 ? "#16A34A" : e.dias >= 15 ? "#F59E0B" : "#DC2626") : ""}
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="small">Plata en cuentas y efectivo hoy:</span><input id="pgSaldo" type="number" inputmode="decimal" value="${c.saldo ?? ""}" placeholder="$" style="width:130px"><button class="btn sm blue" id="pgSaldoOk">Guardar</button></div>
+      <div class="tiny mut" style="margin-top:4px">${c.saldoFecha ? "Actualizado el " + fmtDate(c.saldoFecha) + (e.viejo ? " · <b>actualizalo</b>, ya pasaron más de 10 días" : "") : "También se lo podés decir al asesor: \"tengo 15.000 en la cuenta\"."}</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🐷 Reglas de ahorro automático <span class="hint">${RA.on ? `<span class="pill green">activas</span>` : `<span class="pill amber">en pausa automática</span>`}</span></h3>
+    <div class="small">${RA.on ? `Este mes tus reglas juntaron <b>${money(juntado)}</b>.` : `Están en pausa porque ${esc(RA.motivo)}. <b>Se activan solas</b> cuando los próximos meses estén en verde. Mientras tanto la app igual te muestra cuánto juntarían (${money(juntado)} este mes).`}</div>
+    <div style="margin-top:8px">${reglas().map((rg, i) => `<div class="rowbar"><span class="n">${descRegla(rg)}${rg.meta ? ` → <span class="tag">${esc(rg.meta)}</span>` : ""} <a href="#" data-rgdel="${i}" title="Quitar" style="margin-left:6px;text-decoration:none">✕</a></span><span class="v">${money(juntadoRegla(rg, mesR))}</span></div>`).join("") || `<div class="small mut">Todavía no hay reglas. Agregá una abajo.</div>`}</div>
+    ${RA.on && juntado > 0 && !pasado ? `<div style="margin-top:8px"><button class="btn sm pri" id="rgPasar">✔ Ya lo aparté: sumar ${money(juntado)} a las metas</button></div>` : pasado ? `<div class="tiny mut" style="margin-top:6px">✔ Ya sumaste ${money(pasado)} a las metas este mes.</div>` : ""}
+    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <select id="rgTipo"><option value="redondeo">Redondeo de cada compra</option><option value="por_gasto">Por cada gasto de…</option><option value="pct_extra">% de aguinaldo/SRV</option><option value="fijo_mes">Monto fijo por mes</option></select>
+      <input id="rgPat" placeholder="delivery" style="width:110px;display:none"><input id="rgMonto" type="number" placeholder="$ o %" style="width:90px">
+      <select id="rgMeta"><option value="">Meta…</option>${metas.map(a => `<option>${esc(a.nombre)}</option>`).join("")}</select>
+      <button class="btn sm blue" id="rgAdd">➕ Agregar regla</button></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>🏅 Desafíos <span class="hint">${Object.keys(Lg).length} de ${D.length} logrados alguna vez · se controlan solos</span></h3>
+    <div class="grid g2" style="gap:8px">${D.map(x => `<div class="mini" style="${x.ok ? "border-color:#86EFAC;background:#F0FDF4" : ""}"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:22px;${Lg[x.id] ? "" : "filter:grayscale(1);opacity:.5"}">${x.ic}</span><div style="flex:1"><b style="font-size:14px">${esc(x.t)}</b><div class="tiny mut">${esc(x.prog)}${Lg[x.id] ? ` · 🏅 logrado el ${fmtDate(Lg[x.id])}` : ""}</div></div>${x.ok ? `<span class="pill green">✔ hoy</span>` : ""}</div>${x.meta > 1 && !x.ok ? barHTML(Math.min(1, x.v / x.meta), "#2563EB") : ""}</div>`).join("")}</div>
+  </div>`;
+}
+function bindProgreso(r) {
+  const q = s => r.querySelector(s);
+  q("#pgSaldoOk") && (q("#pgSaldoOk").onclick = () => { const v = q("#pgSaldo").value; const c = cfgProg(); c.saldo = v === "" ? null : +v; c.saldoFecha = todayISO(); S._tickProg = null; snapshotProgreso(); commit("Saldo de cuentas actualizado"); });
+  q("#rgTipo") && (q("#rgTipo").onchange = () => { q("#rgPat").style.display = q("#rgTipo").value === "por_gasto" ? "" : "none"; });
+  q("#rgAdd") && (q("#rgAdd").onclick = () => { const t = q("#rgTipo").value, m = +q("#rgMonto").value; if (!(m > 0)) { if (typeof toast === "function") toast("Poné un monto"); return; } reglas().push({ tipo: t, monto: m, patron: t === "por_gasto" ? (q("#rgPat").value || "delivery") : "", meta: q("#rgMeta").value || "" }); commit("Regla de ahorro agregada"); });
+  r.querySelectorAll("[data-rgdel]").forEach(a => a.onclick = (ev) => { ev.preventDefault(); reglas().splice(+a.dataset.rgdel, 1); commit("Regla quitada"); });
+  q("#rgPasar") && (q("#rgPasar").onclick = () => {
+    const m = todayKey(); let tot = 0;
+    reglas().forEach(rg => { const v = Math.round(juntadoRegla(rg, m)); if (!v) return; tot += v; const a = S.data.ahorro.find(x => x.nombre === rg.meta) || S.data.ahorro[0]; if (a) a.ahorrado = (+a.ahorrado || 0) + v; });
+    (S.data.reglasPasado = S.data.reglasPasado || {})[m] = tot; commit("Ahorro de las reglas sumado a las metas");
+  });
+}
+
+// ---------- Para el asesor
+function contexto11() {
+  try {
+    const h = hoyGastar(), P = patrimonio(), e = edadDinero(), RA = reglasActivas(), L = libreDePrestamos(), D = desafios(), Lg = S.data.logros || {};
+    return `## Mi progreso
+Hoy puede gastar: ${money(h.disp)} (por día ${money(h.porDia)}, hoy lleva ${money(h.hoy)}; objetivo de compras del mes ${money(h.pres)}).
+Patrimonio (sin casa ni auto): tiene ${money(P.activos)} (cuentas ${money(P.cuentas)}, ahorros ${money(P.ahorros)}) − debe ${money(P.deuda)} (préstamos ${money(P.prest)}, tarjetas ${money(P.tarj)}) = ${money(P.neto)}.${L ? ` Libre de préstamos en ${E.mesLargo(L.hasta)} pagando como hoy.` : ""}
+Edad del dinero: ${e.dias === null ? "sin dato (falta el saldo de cuentas)" : Math.round(e.dias) + " días (meta 30)"}.
+Reglas de ahorro: ${reglas().length ? reglas().map(descRegla).join("; ") : "ninguna"} — ${RA.on ? "ACTIVAS" : "EN PAUSA porque " + RA.motivo}.
+Desafíos: ${D.map(x => `${x.t}: ${x.ok ? "cumplido" : x.prog}${Lg[x.id] ? " (logrado " + Lg[x.id] + ")" : ""}`).join(" · ")}.`;
+  } catch (e) { return ""; }
+}
+function reglas11() {
+  return `PROGRESO: si preguntan cuánto pueden gastar hoy, usá "Hoy puede gastar". Si dicen cuánta plata tienen en la cuenta o en efectivo ("tengo 15.000 en el BROU"), proponé {"tipo":"ajustar_saldo","monto":0} (total de todas sus cuentas y efectivo). Mientras haya meses en rojo, no recomiendes ahorrar en metas: primero cubrir los rojos y las deudas caras (las reglas de ahorro se pausan solas). Si cumplieron un desafío, felicitalos con el dato.`;
+}
+function desc11(a) { if (a.tipo === "ajustar_saldo") return `💰 Plata en cuentas y efectivo hoy: <b>$ ${fmt(+a.monto || 0)}</b> (para la edad del dinero y el patrimonio)`; return null; }
+function aplicar11(a) { if (a.tipo === "ajustar_saldo") { const c = cfgProg(); c.saldo = +a.monto || 0; c.saldoFecha = todayISO(); S._tickProg = null; return true; } return undefined; }
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { const h = vPanel(), i = h.indexOf('<div class="grid g21"'); return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], proyeccion: [vProyeccion],
+  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
