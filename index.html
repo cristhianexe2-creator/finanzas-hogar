@@ -3735,15 +3735,14 @@ function descRegla(rg) {
 }
 
 // ---------- 5) Desafíos automáticos
+function fechaLocal(x) { return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); }
+// Racha de días sin NINGÚN gasto cargado (cualquier categoría y medio), contando desde ayer hacia atrás
 function diasSinGastoRacha() {
-  const lim = (() => { const x = new Date(Date.now() - 10 * 864e5); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); })();
-  if (!todasCompras(false).some(c => c.fecha >= lim)) return 0; // si no se está cargando nada, no cuenta como "sin gastos"
-  let n = 0, f = new Date(); f.setDate(f.getDate() - 1);
-  const cache = {};
-  for (let i = 0; i < 90; i++) {
-    const m = f.getFullYear() + "-" + String(f.getMonth() + 1).padStart(2, "0"); cache[m] = cache[m] || gastoDiario(m);
-    if (cache[m][f.getDate() - 1] > 0) break; n++; f.setDate(f.getDate() - 1);
-  }
+  const dias = new Set(todasCompras(false).filter(c => c.v > 0).map(c => String(c.fecha).slice(0, 10)));
+  S.data.movimientos.forEach(mv => { if ((mv.tipo || "Gasto") === "Gasto" && mv.fecha && +mv.monto > 0) dias.add(String(mv.fecha).slice(0, 10)); });
+  if (![...dias].some(f => f >= fechaLocal(new Date(Date.now() - 10 * 864e5)))) return 0; // si no se está cargando nada, no cuenta
+  let n = 0; const f = new Date(); f.setDate(f.getDate() - 1);
+  for (let i = 0; i < 90; i++) { if (dias.has(fechaLocal(f))) break; n++; f.setDate(f.getDate() - 1); }
   return n;
 }
 function desafios() {
@@ -3770,6 +3769,7 @@ function desafios() {
 }
 function actualizarLogros() {
   const L = (S.data.logros = S.data.logros || {}), nuevos = [];
+  if (!L._rachaV2) { delete L.sin_gasto_1; delete L.sin_gasto_3; L._rachaV2 = todayISO(); }
   desafios().forEach(x => { if (x.ok && !L[x.id]) { L[x.id] = todayISO(); nuevos.push(x.ic + " " + x.t); } });
   return nuevos;
 }
@@ -3815,7 +3815,7 @@ function vProgreso() {
       <select id="rgMeta"><option value="">Meta…</option>${metas.map(a => `<option>${esc(a.nombre)}</option>`).join("")}</select>
       <button class="btn sm blue" id="rgAdd">➕ Agregar regla</button></div>
   </div>
-  <div class="card" style="margin-top:16px"><h3>🏅 Desafíos <span class="hint">${Object.keys(Lg).length} de ${D.length} logrados alguna vez · se controlan solos</span></h3>
+  <div class="card" style="margin-top:16px"><h3>🏅 Desafíos <span class="hint">${Object.keys(Lg).filter(k => !k.startsWith("_")).length} de ${D.length} logrados alguna vez · se controlan solos</span></h3>
     <div class="grid g2" style="gap:8px">${D.map(x => `<div class="mini" style="${x.ok ? "border-color:#86EFAC;background:#F0FDF4" : ""}"><div style="display:flex;gap:8px;align-items:center"><span style="font-size:22px;${Lg[x.id] ? "" : "filter:grayscale(1);opacity:.5"}">${x.ic}</span><div style="flex:1"><b style="font-size:14px">${esc(x.t)}</b><div class="tiny mut">${esc(x.prog)}${Lg[x.id] ? ` · 🏅 logrado el ${fmtDate(Lg[x.id])}` : ""}</div></div>${x.ok ? `<span class="pill green">✔ hoy</span>` : ""}</div>${x.meta > 1 && !x.ok ? barHTML(Math.min(1, x.v / x.meta), "#2563EB") : ""}</div>`).join("")}</div>
   </div>`;
 }
