@@ -808,7 +808,7 @@ const AV_ICON = { rojo: "🔴", verde: "🟢", naranja: "⚠️", amarillo: "�
 
 // ===================== PANTALLAS =====================
 const NAV = [
-  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["progreso", "🏆", "Mi progreso"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
+  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["progreso", "🏆", "Mi progreso"], ["mesada", "👦", "Mesada de Mateo"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
   ["calendario", "📅", "Calendario"], ["proyeccion", "📈", "Proyección"], ["informes", "📑", "Informes"], ["wrapped", "🎁", "Tu 2026"], ["fijos", "🧾", "Gastos fijos"], ["ingresos", "💵", "Ingresos"],
   ["prestamos", "🏦", "Préstamos"], ["ahorro", "🐷", "Ahorro y metas"], ["pendientes", "✅", "Pendientes"], ["config", "⚙️", "Configuración"]
 ];
@@ -1455,6 +1455,8 @@ ${typeof contextoIRPF === "function" ? contextoIRPF() : ""}
 
 ${typeof contexto11 === "function" ? contexto11() : ""}
 
+${typeof contexto12 === "function" ? contexto12() : ""}
+
 ## Condiciones de las tarjetas (exterior y refinanciación)
 ${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
 
@@ -1482,6 +1484,7 @@ CÁLCULOS: si preguntan por un préstamo para pagar deudas, cuánto ahorran adel
 ${typeof REGLAS9 === "string" ? REGLAS9 : ""}
 ${typeof reglasIRPF === "function" ? reglasIRPF() : ""}
 ${typeof reglas11 === "function" ? reglas11() : ""}
+${typeof reglas12 === "function" ? reglas12() : ""}
 VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
@@ -1530,6 +1533,7 @@ const CHIPS = {
 function actSummary(a) {
   if (typeof desc9 === "function") { const r9 = desc9(a); if (r9) return r9; }
   if (typeof desc11 === "function") { const r11 = desc11(a); if (r11) return r11; }
+  if (typeof desc12 === "function") { const r12 = desc12(a); if (r12) return r12; }
   const mo = a.moneda === "USD" ? "U$S " : "$ ";
   if (a.tipo === "movimiento") return `${a.tipoMov && a.tipoMov !== "Gasto" ? "💰 " + a.tipoMov : "🧾"} <b>${esc(a.descripcion)}</b> · ${mo}${fmt(+a.monto || 0, 2)} · ${esc(a.medio || "¿medio?")}${a.cuotas > 1 ? " · " + a.cuotas + " cuotas" : ""} · <span class="mut">${fmtDate(a.fecha)}${a.categoria ? " · " + esc(a.categoria) : ""}</span>`;
   if (a.tipo === "compra_tarjeta") return `💳 <b>${esc(a.comercio)}</b> · cuota ${a.cuotaInicial}/${a.cuotas} de ${mo}${fmt(+a.valorCuota || 0, 2)} · ${esc(a.tarjeta)} · <span class="mut">resumen ${a.resumen ? E.mesCorto(a.resumen) : "?"}</span>`;
@@ -1674,6 +1678,7 @@ function aplicarAccion(a) {
   const d = S.data;
   if (typeof aplicar9 === "function") { const r9 = aplicar9(a); if (r9 !== undefined) return r9; }
   if (typeof aplicar11 === "function") { const r11 = aplicar11(a); if (r11 !== undefined) return r11; }
+  if (typeof aplicar12 === "function") { const r12 = aplicar12(a); if (r12 !== undefined) return r12; }
   if (a.tipo === "movimiento") {
     const isC = L.isCard(a.medio);
     d.movimientos.unshift({ fecha: a.fecha || todayISO(), tipo: a.tipoMov || "Gasto", descripcion: a.descripcion || "Sin descripción", categoria: a.categoria || null, persona: a.persona || (S.user ? S.user.nombre : d.config.personas[0]), moneda: a.moneda || "UYU", monto: +a.monto, medio: a.medio, cuotas: isC ? (+a.cuotas || 1) : null });
@@ -3943,9 +3948,100 @@ async function recibirCompartido() {
 }
 setTimeout(recibirCompartido, 800);
 
+// ===================== MESADA DE MATEO: plata que le pasan y en qué la usa =====================
+const CAT_MESADA = "Mesada de Mateo";
+const USOS_MESADA = ["Comida y salidas", "Transporte", "Ropa", "Juegos y apps", "Colegio", "Ahorro de él", "Otros"];
+function cfgMesada() {
+  const c = (S.data.config.mesada = Object.assign({ tope: null }, S.data.config.mesada || {}));
+  const cats = S.data.config.categorias || [];
+  if (!cats.includes(CAT_MESADA)) { const i = cats.indexOf("Otros"); i >= 0 ? cats.splice(i, 0, CAT_MESADA) : cats.push(CAT_MESADA); }
+  S.data.mesadaUsos = S.data.mesadaUsos || [];
+  return c;
+}
+const esMesada = mv => (mv.tipo || "Gasto") === "Gasto" && (mv.categoria === CAT_MESADA || (/mesada|mateo/i.test(mv.descripcion || "") && !/colegio|celular|matr[ií]cula/i.test(mv.descripcion || "")));
+function entregasMesada(m) { cfgMesada(); return S.data.movimientos.filter(mv => mv.fecha && esMesada(mv) && (!m || mv.fecha.slice(0, 7) === m)).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function usosMesada(m) { cfgMesada(); return S.data.mesadaUsos.filter(u => !m || (u.fecha || "").slice(0, 7) === m).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")); }
+function resumenMesada(m) {
+  const E1 = entregasMesada(m), U = usosMesada(m);
+  const dado = E1.reduce((s, x) => s + uyuEq(x.moneda, +x.monto || 0), 0), usado = U.reduce((s, x) => s + (+x.monto || 0), 0);
+  const porUso = {}; U.forEach(u => porUso[u.en || "Otros"] = (porUso[u.en || "Otros"] || 0) + (+u.monto || 0));
+  return { m, dado, veces: E1.length, usado, sinSaber: Math.max(0, dado - usado), porUso, E: E1, U };
+}
+function vMesada() {
+  const c = cfgMesada(), m = todayKey(), R0 = resumenMesada(m), meses = [...Array(12)].map((_, i) => E.addM(m, i - 11)), H = meses.map(resumenMesada);
+  const prom = (() => { const v = H.slice(0, 11).filter(x => x.dado > 0).map(x => x.dado); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; })();
+  const tope = +c.tope || 0, pct = tope ? R0.dado / tope : 0;
+  const fila = (l, v, cls) => `<div class="rowbar"><span class="n">${l}</span><span class="v ${cls || ""}">${v}</span></div>`;
+  return header("👦 Mesada de Mateo", "Lo que le pasan a Mateo cada mes y, si te lo cuenta, en qué lo usa.", false) + `
+  <div class="grid g4">
+    <div class="card kpi k-blue"><div class="lab">💸 Le pasaron en ${E.mesLargo(m)}</div><div class="val">${money(R0.dado)}</div><div class="foot">${R0.veces} ${R0.veces === 1 ? "vez" : "veces"}${prom ? ` · promedio ${money(prom)}/mes` : ""}</div></div>
+    <div class="card kpi k-green"><div class="lab">🧾 Sabemos en qué lo usó</div><div class="val">${money(R0.usado)}</div><div class="foot">${R0.dado ? Math.round(R0.usado / R0.dado * 100) + "% de lo que recibió" : "—"}</div></div>
+    <div class="card kpi ${R0.sinSaber ? "k-amber" : "k-green"}"><div class="lab">❓ Sin saber en qué</div><div class="val">${money(R0.sinSaber)}</div><div class="foot">preguntale y cargalo abajo</div></div>
+    <div class="card kpi ${tope && pct > 1 ? "k-red" : "k-violet"}"><div class="lab">🎯 Tope por mes</div><div class="val">${tope ? money(tope) : "—"}</div><div class="foot">${tope ? (pct > 1 ? `se pasó ${money(R0.dado - tope)}` : `quedan ${money(tope - R0.dado)}`) : "opcional, ponelo abajo"}</div></div>
+  </div>
+  ${tope ? `<div class="card" style="margin-top:12px">${barHTML(Math.min(1, pct), pct > 1 ? "#DC2626" : pct > .8 ? "#F59E0B" : "#16A34A")}</div>` : ""}
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>💸 Le pasamos plata</h3>
+      <div class="grid g2" style="gap:8px">
+        <label class="small">Monto<input id="msM" type="number" inputmode="decimal" placeholder="$"></label>
+        <label class="small">Fecha<input id="msF" type="date" value="${todayISO()}"></label>
+        <label class="small">Quién se la dio<select id="msP">${(S.data.config.personas || ["Cristhian", "Melyna"]).filter(p => !/mateo/i.test(p)).map(p => `<option>${esc(p)}</option>`).join("")}</select></label>
+        <label class="small">Cómo<select id="msMed">${["Efectivo", ...(S.data.config.cuentas || []).map(x => x.nombre).filter(n => !/efectivo/i.test(n))].map(n => `<option>${esc(n)}</option>`).join("")}</select></label>
+      </div>
+      <input id="msN" placeholder="Para qué (opcional): salida, cumple, ómnibus…" style="margin-top:8px;width:100%">
+      <button class="btn pri" id="msAdd" style="margin-top:8px">➕ Registrar</button>
+      <div class="tiny mut" style="margin-top:6px">También al asesor: <i>"le pasé 500 a Mateo"</i>.</div></div>
+    <div class="card"><h3>🧾 En qué la usó <span class="hint">lo que te cuente</span></h3>
+      <div class="grid g2" style="gap:8px">
+        <label class="small">Monto<input id="muM" type="number" inputmode="decimal" placeholder="$"></label>
+        <label class="small">En qué<select id="muE">${USOS_MESADA.map(u => `<option>${u}</option>`).join("")}</select></label>
+      </div>
+      <input id="muN" placeholder="Detalle (opcional): cine con amigos, recarga del celular…" style="margin-top:8px;width:100%">
+      <button class="btn blue" id="muAdd" style="margin-top:8px">➕ Anotar</button>
+      <div class="tiny mut" style="margin-top:6px">Esto no suma como gasto de la casa (ya se contó cuando se la pasaron); es para saber en qué se va. También al asesor: <i>"Mateo gastó 300 en el cine"</i>.</div>
+      ${Object.keys(R0.porUso).length ? `<div style="margin-top:10px">${Object.entries(R0.porUso).sort((a, b) => b[1] - a[1]).map(([k, v]) => fila(k, money(v))).join("")}</div>` : ""}</div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>📅 Mes a mes</h3>
+    ${svgLines(meses.map(x => E.mesCorto(x)), [{ name: "Le pasaron", values: H.map(x => Math.round(x.dado)), color: "#2563EB", w: 3 }, { name: "Sabemos en qué", values: H.map(x => Math.round(x.usado)), color: "#16A34A" }].concat(tope ? [{ name: "Tope", values: H.map(() => tope), color: "#DC2626", dash: true }] : []), { h: 180 })}
+    <table class="t" style="margin-top:8px"><thead><tr><th>Mes</th><th class="r">Le pasaron</th><th class="r">Veces</th><th class="r">En qué lo usó</th><th class="r">Sin saber</th></tr></thead><tbody>
+    ${H.slice().reverse().filter(x => x.dado || x.usado).map(x => `<tr><td>${E.mesLargo(x.m)}</td><td class="r">${money(x.dado)}</td><td class="r">${x.veces}</td><td class="r">${money(x.usado)}</td><td class="r ${x.sinSaber ? "neg" : ""}">${money(x.sinSaber)}</td></tr>`).join("") || `<tr><td colspan="5" class="mut">Todavía no hay registros.</td></tr>`}</tbody></table></div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>Últimas veces que le pasaron</h3>${entregasMesada().slice(0, 10).map(x => fila(`${fmtDate(x.fecha)} · ${esc(x.persona || x.por || "")} · ${esc(x.medio || "")}${x.descripcion && x.descripcion !== CAT_MESADA ? " · " + esc(x.descripcion) : ""}`, money(uyuEq(x.moneda, +x.monto || 0)))).join("") || `<div class="small mut">Nada todavía.</div>`}</div>
+    <div class="card"><h3>Últimos usos anotados</h3>${usosMesada().slice(0, 10).map((u, i) => fila(`${fmtDate(u.fecha)} · ${esc(u.en)}${u.nota ? " · " + esc(u.nota) : ""} <a href="#" data-mudel="${S.data.mesadaUsos.indexOf(u)}" style="text-decoration:none">✕</a>`, money(+u.monto || 0))).join("") || `<div class="small mut">Nada todavía.</div>`}
+      <div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="small">Tope por mes (opcional):</span><input id="msTope" type="number" value="${c.tope || ""}" placeholder="$" style="width:110px"><button class="btn sm" id="msTopeOk">Guardar</button></div></div>
+  </div>`;
+}
+function bindMesada(r) {
+  const q = s => r.querySelector(s);
+  q("#msAdd") && (q("#msAdd").onclick = () => {
+    const v = +q("#msM").value; if (!(v > 0)) return toast("Poné el monto");
+    S.data.movimientos.unshift({ fecha: q("#msF").value || todayISO(), tipo: "Gasto", descripcion: q("#msN").value || CAT_MESADA, categoria: CAT_MESADA, persona: q("#msP").value, moneda: "UYU", monto: v, medio: q("#msMed").value, cuotas: null });
+    commit(`💸 ${money(v)} para Mateo`);
+  });
+  q("#muAdd") && (q("#muAdd").onclick = () => {
+    const v = +q("#muM").value; if (!(v > 0)) return toast("Poné el monto");
+    cfgMesada(); S.data.mesadaUsos.push({ fecha: todayISO(), monto: v, en: q("#muE").value, nota: q("#muN").value || "" }); commit("Anotado en qué lo usó");
+  });
+  r.querySelectorAll("[data-mudel]").forEach(a => a.onclick = ev => { ev.preventDefault(); S.data.mesadaUsos.splice(+a.dataset.mudel, 1); commit("Uso borrado"); });
+  q("#msTopeOk") && (q("#msTopeOk").onclick = () => { cfgMesada().tope = +q("#msTope").value || null; commit("Tope de la mesada guardado"); });
+}
+// ---------- asesor
+function contexto12() {
+  try {
+    const c = cfgMesada(), a = resumenMesada(todayKey()), b = resumenMesada(E.addM(todayKey(), -1));
+    return `## Mesada de Mateo (hijo, 15 años)
+Este mes le pasaron ${money(a.dado)} (${a.veces} veces); se sabe en qué usó ${money(a.usado)}${Object.keys(a.porUso).length ? " (" + Object.entries(a.porUso).map(([k, v]) => k + " " + money(v)).join(", ") + ")" : ""}; sin saber en qué: ${money(a.sinSaber)}. Mes pasado: ${money(b.dado)}.${c.tope ? " Tope mensual: " + money(c.tope) + "." : ""}`;
+  } catch (e) { return ""; }
+}
+function reglas12() {
+  return `MESADA DE MATEO: si dicen que le pasaron/dieron/transfirieron plata a Mateo (el hijo), cargalo como gasto con "categoria":"${CAT_MESADA}" (descripción: para qué, si lo dicen; medio: efectivo o la cuenta que digan). Si cuentan en qué la gastó Mateo ("Mateo gastó 300 en el cine"), proponé {"tipo":"uso_mesada","monto":0,"en":"${USOS_MESADA.join("|")}","nota":"","fecha":"YYYY-MM-DD"}: eso NO es un gasto nuevo de la casa, solo anota en qué la usó. No uses "${CAT_MESADA}" para el colegio, la matrícula ni el celular de Mateo (son gastos fijos aparte).`;
+}
+function desc12(a) { if (a.tipo === "uso_mesada") return `👦 Mateo usó <b>${money(+a.monto || 0)}</b> en <b>${esc(a.en || "Otros")}</b>${a.nota ? " · " + esc(a.nota) : ""} <span class="tiny mut">(no suma como gasto)</span>`; return null; }
+function aplicar12(a) { if (a.tipo === "uso_mesada") { cfgMesada(); S.data.mesadaUsos.push({ fecha: a.fecha || todayISO(), monto: +a.monto || 0, en: USOS_MESADA.includes(a.en) ? a.en : "Otros", nota: a.nota || "" }); return true; } return undefined; }
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], proyeccion: [vProyeccion],
+  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], mesada: [vMesada, bindMesada], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
