@@ -3677,7 +3677,7 @@ function hoyGastarHTML() {
         ${ok ? `Si no lo usás, mañana tenés un poco más.` : `Desde mañana: <b>${money(h.desdeMan)}</b> por día para cerrar el mes en el objetivo.`}<br>
         <span class="tiny mut">Objetivo del mes ${money(h.pres)} (${esc(h.fuente)}) · faltan ${h.quedan} días</span></div>
     </div>
-    ${h.rojo ? `<div class="msg naranja" style="margin-top:8px"><span class="e">🟠</span><span>Este mes viene en rojo: si podés, gastá menos que esto y lo que sobre va a las deudas.</span></div>` : ""}${nuevo}
+    ${alcanciaPanelHTML()}${h.rojo ? `<div class="msg naranja" style="margin-top:8px"><span class="e">🟠</span><span>Este mes viene en rojo: si podés, gastá menos que esto y lo que sobre va a las deudas.</span></div>` : ""}${nuevo}
   </div>`;
 }
 
@@ -3685,11 +3685,11 @@ function hoyGastarHTML() {
 function cfgProg() { return (S.data.config.progreso = Object.assign({ saldo: null, saldoFecha: null }, S.data.config.progreso || {})); }
 function patrimonio() {
   const c = cfgProg(), ahorros = S.data.ahorro.reduce((s, a) => s + uyuEq(a.moneda || "UYU", +a.ahorrado || 0), 0);
-  const cuentas = +c.saldo || 0;
+  const cuentas = +c.saldo || 0, alcSuelto = +((S.data.alcancia || {}).suelto) || 0;
   const prest = deudas().filter(x => x.tipo === "extra" || !/tarjeta/i.test(x.forma)).reduce((s, x) => s + x.saldo, 0);
   const tarj = S.R.cards.reduce((s, ci) => s + Math.max(0, ci.usado || 0), 0);
-  const activos = ahorros + cuentas, deuda = prest + tarj;
-  return { ahorros, cuentas, prest, tarj, activos, deuda, neto: activos - deuda };
+  const activos = ahorros + alcSuelto + cuentas, deuda = prest + tarj;
+  return { ahorros: ahorros + alcSuelto, cuentas, prest, tarj, activos, deuda, neto: activos - deuda };
 }
 function snapshotProgreso() {
   const P = patrimonio(), m = todayKey(), H = (S.data.progresoHist = S.data.progresoHist || {});
@@ -3806,9 +3806,9 @@ function vProgreso() {
     </div>
   </div>
   <div class="card" style="margin-top:16px"><h3>🐷 Reglas de ahorro automático <span class="hint">${RA.on ? `<span class="pill green">activas</span>` : `<span class="pill amber">en pausa automática</span>`}</span></h3>
-    <div class="small">${RA.on ? `Este mes tus reglas juntaron <b>${money(juntado)}</b>.` : `Están en pausa porque ${esc(RA.motivo)}. <b>Se activan solas</b> cuando los próximos meses estén en verde. Mientras tanto la app igual te muestra cuánto juntarían (${money(juntado)} este mes).`}</div>
+    <div class="small">${RA.on ? `Están activas: cada vez que cargás un gasto que dispara una regla, te sale el cartel de la alcancía 🐷.` : `Están en pausa porque ${esc(RA.motivo)}. <b>Se activan solas</b> cuando los próximos meses estén en verde. Mientras tanto no te va a salir el cartel de la alcancía (este mes habrían sumado ${money(juntado)}).`}</div>
     <div style="margin-top:8px">${reglas().map((rg, i) => `<div class="rowbar"><span class="n">${descRegla(rg)}${rg.meta ? ` → <span class="tag">${esc(rg.meta)}</span>` : ""} <a href="#" data-rgdel="${i}" title="Quitar" style="margin-left:6px;text-decoration:none">✕</a></span><span class="v">${money(juntadoRegla(rg, mesR))}</span></div>`).join("") || `<div class="small mut">Todavía no hay reglas. Agregá una abajo.</div>`}</div>
-    ${RA.on && juntado > 0 && !pasado ? `<div style="margin-top:8px"><button class="btn sm pri" id="rgPasar">✔ Ya lo aparté: sumar ${money(juntado)} a las metas</button></div>` : pasado ? `<div class="tiny mut" style="margin-top:6px">✔ Ya sumaste ${money(pasado)} a las metas este mes.</div>` : ""}
+    ${alcanciaProgresoHTML()}
     <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <select id="rgTipo"><option value="redondeo">Redondeo de cada compra</option><option value="por_gasto">Por cada gasto de…</option><option value="pct_extra">% de aguinaldo/SRV</option><option value="fijo_mes">Monto fijo por mes</option></select>
       <input id="rgPat" placeholder="delivery" style="width:110px;display:none"><input id="rgMonto" type="number" placeholder="$ o %" style="width:90px">
@@ -3820,10 +3820,10 @@ function vProgreso() {
   </div>`;
 }
 function bindProgreso(r) {
-  const q = s => r.querySelector(s);
+  const q = s => r.querySelector(s); bindAlcanciaPanel(r);
   q("#pgSaldoOk") && (q("#pgSaldoOk").onclick = () => { const v = q("#pgSaldo").value; const c = cfgProg(); c.saldo = v === "" ? null : +v; c.saldoFecha = todayISO(); S._tickProg = null; snapshotProgreso(); commit("Saldo de cuentas actualizado"); });
   q("#rgTipo") && (q("#rgTipo").onchange = () => { q("#rgPat").style.display = q("#rgTipo").value === "por_gasto" ? "" : "none"; });
-  q("#rgAdd") && (q("#rgAdd").onclick = () => { const t = q("#rgTipo").value, m = +q("#rgMonto").value; if (!(m > 0)) { if (typeof toast === "function") toast("Poné un monto"); return; } reglas().push({ tipo: t, monto: m, patron: t === "por_gasto" ? (q("#rgPat").value || "delivery") : "", meta: q("#rgMeta").value || "" }); commit("Regla de ahorro agregada"); });
+  q("#rgAdd") && (q("#rgAdd").onclick = () => { const t = q("#rgTipo").value, m = +q("#rgMonto").value; if (!(m > 0)) { if (typeof toast === "function") toast("Poné un monto"); return; } reglas().push({ id: Math.random().toString(36).slice(2, 8), tipo: t, monto: m, patron: t === "por_gasto" ? (q("#rgPat").value || "delivery") : "", meta: q("#rgMeta").value || "" }); commit("Regla de ahorro agregada"); });
   r.querySelectorAll("[data-rgdel]").forEach(a => a.onclick = (ev) => { ev.preventDefault(); reglas().splice(+a.dataset.rgdel, 1); commit("Regla quitada"); });
   q("#rgPasar") && (q("#rgPasar").onclick = () => {
     const m = todayKey(); let tot = 0;
@@ -3840,7 +3840,7 @@ function contexto11() {
 Hoy puede gastar: ${money(h.disp)} (por día ${money(h.porDia)}, hoy lleva ${money(h.hoy)}; objetivo de compras del mes ${money(h.pres)}).
 Patrimonio (sin casa ni auto): tiene ${money(P.activos)} (cuentas ${money(P.cuentas)}, ahorros ${money(P.ahorros)}) − debe ${money(P.deuda)} (préstamos ${money(P.prest)}, tarjetas ${money(P.tarj)}) = ${money(P.neto)}.${L ? ` Libre de préstamos en ${E.mesLargo(L.hasta)} pagando como hoy.` : ""}
 Edad del dinero: ${e.dias === null ? "sin dato (falta el saldo de cuentas)" : Math.round(e.dias) + " días (meta 30)"}.
-Reglas de ahorro: ${reglas().length ? reglas().map(descRegla).join("; ") : "ninguna"} — ${RA.on ? "ACTIVAS" : "EN PAUSA porque " + RA.motivo}.
+Reglas de ahorro: ${reglas().length ? reglas().map(descRegla).join("; ") : "ninguna"} — ${RA.on ? "ACTIVAS" : "EN PAUSA porque " + RA.motivo}. Alcancía: ${money(+alc().total || 0)} guardados en total, ${money(pendientesAlcancia().reduce((s, x) => s + x.monto, 0))} pendientes de guardar.
 Desafíos: ${D.map(x => `${x.t}: ${x.ok ? "cumplido" : x.prog}${Lg[x.id] ? " (logrado " + Lg[x.id] + ")" : ""}`).join(" · ")}.`;
   } catch (e) { return ""; }
 }
@@ -3850,9 +3850,70 @@ function reglas11() {
 function desc11(a) { if (a.tipo === "ajustar_saldo") return `💰 Plata en cuentas y efectivo hoy: <b>$ ${fmt(+a.monto || 0)}</b> (para la edad del dinero y el patrimonio)`; return null; }
 function aplicar11(a) { if (a.tipo === "ajustar_saldo") { const c = cfgProg(); c.saldo = +a.monto || 0; c.saldoFecha = todayISO(); S._tickProg = null; return true; } return undefined; }
 
+// ===================== ALCANCÍA: avisos al cargar un gasto que dispara una regla =====================
+function alc() { const a = (S.data.alcancia = S.data.alcancia || { total: 0, vistos: {}, hist: [] }); a.vistos = a.vistos || {}; a.hist = a.hist || []; return a; }
+function itemsAlcancia(m) {
+  const out = [], C = todasCompras(false).filter(c => c.fecha.slice(0, 7) === m);
+  reglas().forEach((rg, i) => {
+    const rid = rg.id || (rg.id = Math.random().toString(36).slice(2, 8));
+    if (rg.tipo === "redondeo") { const b = +rg.monto || 100; C.forEach(c => { const v = Math.round((b - (c.v % b)) % b); if (v > 0) out.push({ key: rid + "|" + c.fecha + "|" + c.desc + "|" + Math.round(c.v), monto: v, motivo: `redondeo de ${c.desc || "una compra"} (${money(c.v)})`, meta: rg.meta, fecha: c.fecha }); }); }
+    if (rg.tipo === "por_gasto") { const rx = new RegExp((rg.patron || "delivery").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"); C.filter(c => rx.test(c.desc) || rx.test(c.cat) || (/delivery/i.test(rg.patron || "") && RX_DELIVERY.test(c.desc))).forEach(c => out.push({ key: rid + "|" + c.fecha + "|" + c.desc + "|" + Math.round(c.v), monto: +rg.monto || 0, motivo: `${c.desc || rg.patron} (regla "${rg.patron || "delivery"}")`, meta: rg.meta, fecha: c.fecha })); }
+    if (rg.tipo === "pct_extra") S.data.movimientos.filter(mv => mv.fecha && mv.fecha.slice(0, 7) === m && /Aguinaldo|SRV|Licencia/.test(mv.tipo || "")).forEach(mv => out.push({ key: rid + "|" + mv.fecha + "|" + mv.tipo + "|" + mv.monto, monto: Math.round(uyuEq(mv.moneda, +mv.monto || 0) * (+rg.monto || 0) / 100), motivo: `${rg.monto}% de tu ${mv.tipo}`, meta: rg.meta, fecha: mv.fecha }));
+    if (rg.tipo === "fijo_mes") out.push({ key: rid + "|mes|" + m, monto: +rg.monto || 0, motivo: "ahorro fijo del mes", meta: rg.meta, fecha: m + "-01" });
+  });
+  return out.filter(x => x.monto > 0);
+}
+function pendientesAlcancia() { const A = alc(), m = todayKey(); return itemsAlcancia(m).filter(x => A.vistos[x.key] === "pendiente"); }
+function guardarEnAlcancia(items) {
+  const A = alc(); let tot = 0;
+  items.forEach(x => { A.vistos[x.key] = "guardado"; tot += x.monto; A.hist.unshift({ fecha: todayISO(), monto: x.monto, motivo: x.motivo, meta: x.meta || "" });
+    const meta = S.data.ahorro.find(a => a.nombre === x.meta) || S.data.ahorro.find(a => /alcanc/i.test(a.nombre)); if (meta) meta.ahorrado = (+meta.ahorrado || 0) + x.monto; else A.suelto = (+A.suelto || 0) + x.monto; });
+  A.total = (+A.total || 0) + tot; A.hist = A.hist.slice(0, 60); return tot;
+}
+function chequearAlcancia() {
+  if (!S.data || !S.R || document.querySelector(".alc-bg") || !reglas().length) return;
+  const A = alc(), m = todayKey(), items = itemsAlcancia(m), nuevos = items.filter(x => !A.vistos[x.key]);
+  if (!A.init) { items.forEach(x => A.vistos[x.key] = "previo"); A.init = true; save(); return; }
+  if (!nuevos.length) return avisoFinDeMes();
+  if (!reglasActivas().on) { nuevos.forEach(x => A.vistos[x.key] = "pausa"); save(); return; }
+  nuevos.forEach(x => A.vistos[x.key] = "pendiente"); save();
+  const tot = nuevos.reduce((s, x) => s + x.monto, 0), bg = document.createElement("div");
+  bg.className = "modal-bg alc-bg";
+  bg.innerHTML = `<div class="modal" style="max-width:420px;text-align:center"><div style="font-size:54px">🐷</div><h2 style="margin:6px 0">¡A la alcancía!</h2>
+    <div style="font-size:30px;font-weight:800;color:#15803D">Guardá ${money(tot)}</div>
+    <div class="small" style="margin:8px 0 14px">${nuevos.slice(0, 5).map(x => `${money(x.monto)} · ${esc(x.motivo)}${x.meta ? ` → <b>${esc(x.meta)}</b>` : ""}`).join("<br>")}${nuevos.length > 5 ? `<br>y ${nuevos.length - 5} más` : ""}</div>
+    <div class="tiny mut" style="margin-bottom:12px">Pasalo a tu caja de ahorro o separalo en efectivo, y tocá "Listo".</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn pri" id="alcOk">✔ Listo, lo guardé</button><button class="btn" id="alcLuego">Después</button><button class="btn" id="alcNo" style="color:#64748B">Esta vez no</button></div></div>`;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.querySelector("#alcOk").onclick = () => { const t = guardarEnAlcancia(nuevos); close(); commit(`🐷 ${money(t)} a la alcancía`); };
+  bg.querySelector("#alcLuego").onclick = () => { close(); toast("Te lo recuerdo en el Panel"); render(); };
+  bg.querySelector("#alcNo").onclick = () => { nuevos.forEach(x => A.vistos[x.key] = "salteado"); close(); commit("Esta vez no"); };
+}
+function avisoFinDeMes() {
+  const d = new Date(), fin = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  if (fin - d.getDate() > 2) return; const P = pendientesAlcancia(); if (!P.length) return;
+  const A = alc(); if (A.avisoFin === todayISO()) return; A.avisoFin = todayISO(); save();
+  const tot = P.reduce((s, x) => s + x.monto, 0), txt = `Termina el mes: tenés ${money(tot)} para guardar en la alcancía.`;
+  try { if ("Notification" in window && Notification.permission === "granted" && navigator.serviceWorker) navigator.serviceWorker.ready.then(r => r.showNotification("🐷 Alcancía", { body: txt, icon: "icon-192.png", tag: "alcancia" })); } catch (e) { }
+  toast("🐷 " + txt);
+}
+function alcanciaPanelHTML() {
+  if (!reglas().length) return "";
+  const P = pendientesAlcancia(); if (!P.length) return "";
+  const tot = P.reduce((s, x) => s + x.monto, 0), d = new Date(), fin = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() <= 2;
+  return `<div class="msg ${fin ? "naranja" : "verde"}" style="margin-top:8px"><span class="e">🐷</span><span>${fin ? "<b>Termina el mes:</b> " : ""}Tenés <b>${money(tot)}</b> para guardar en la alcancía (${P.length} ${P.length === 1 ? "aviso" : "avisos"} de tus reglas). <button class="btn sm pri" id="alcPanelOk" style="margin-left:6px">✔ Ya lo guardé</button></span></div>`;
+}
+function bindAlcanciaPanel(r) { const b = r.querySelector("#alcPanelOk"); if (b) b.onclick = () => { const t = guardarEnAlcancia(pendientesAlcancia()); commit(`🐷 ${money(t)} a la alcancía`); }; }
+function alcanciaProgresoHTML() {
+  const A = alc(), m = todayKey(), mes = A.hist.filter(h => h.fecha.slice(0, 7) === m).reduce((s, h) => s + h.monto, 0), P = pendientesAlcancia(), pend = P.reduce((s, x) => s + x.monto, 0);
+  return `<div class="grid g3" style="gap:8px;margin-top:10px"><div class="mini"><div class="tiny mut">🐷 En la alcancía (total)</div><div class="big" style="color:#15803D">${money(+A.total || 0)}</div></div><div class="mini"><div class="tiny mut">Guardado este mes</div><div class="big">${money(mes)}</div></div><div class="mini"><div class="tiny mut">Para guardar</div><div class="big" style="color:${pend ? "#EA580C" : "#0F172A"}">${money(pend)}</div>${pend ? `<button class="btn sm pri" id="alcPanelOk">✔ Ya lo guardé</button>` : ""}</div></div>
+  ${A.hist.length ? `<div class="tiny mut" style="margin-top:8px">Últimos: ${A.hist.slice(0, 6).map(h => `${fmtDate(h.fecha)} ${money(h.monto)} (${esc(h.motivo)})`).join(" · ")}</div>` : ""}`;
+}
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], proyeccion: [vProyeccion],
+  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], proyeccion: [vProyeccion],
   fijos: [vFijos, bindFijos], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
@@ -3892,6 +3953,7 @@ function render() {
   main.innerHTML = banner + VIEWS[S.view][0]();
   if (VIEWS[S.view][1]) VIEWS[S.view][1](main);
   bindTables(main);
+  if (typeof chequearAlcancia === "function") setTimeout(chequearAlcancia, 400);
   main.scrollTop = sc; if (wy) window.scrollTo(0, wy);
   document.querySelectorAll("[data-bn]").forEach(b => b.onclick = () => { if (b.dataset.bn === "_menu") { document.body.classList.add("navopen"); return; } S.view = b.dataset.bn; render(); window.scrollTo(0, 0); $("#main").scrollTop = 0; });
   document.body.onclick = (e) => { if (document.body.classList.contains("navopen") && !e.target.closest(".side") && !e.target.closest(".mtop") && !e.target.closest(".bnav")) document.body.classList.remove("navopen"); };
