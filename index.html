@@ -1652,7 +1652,7 @@ function dictar(btn, tin) {
 async function sendChat(q, ver) {
   q = (q || "").trim(); if ((!q && !S.adj.length) || S.chatBusy) return;
   let ver0 = ver; if (!q) { q = "Revisá este archivo: decime qué es, comentame lo importante y proponé qué cargar o actualizar en la app."; ver0 = ver || "Revisá este archivo"; } ver = ver0;
-  const files = S.adj.splice(0);
+  const files = S.adj.splice(0); if (files.length) S._ultAdj = files;
   S.chat.push({ role: "user", text: ver || q, prompt: ver ? q : undefined, files: files.length ? files.map(f => f.name) : null });
   S._draft = ""; S.chatBusy = true; renderChat();
   try {
@@ -2394,7 +2394,9 @@ async function cloudStart(user) {
     if (d.error) throw d.error; if (m.error) throw m.error;
     if (!d.data) return renderImport();
     const cache = cacheLoad();
-    const data = Object.assign({}, d.data.data, { movimientos: (m.data || []).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })) });
+    const filas = m.data || [];
+    S.archivos = filas.filter(r => r.data && r.data.__archivo).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at }));
+    const data = Object.assign({}, d.data.data, { movimientos: filas.filter(r => !(r.data && r.data.__archivo)).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })) });
     S._docVer = d.data.version;
     S._baseDocJ = JSON.stringify(docPart(d.data.data));
     S._baseMov = new Map(data.movimientos.map(x => [x.id, movJ(x)]));
@@ -2459,6 +2461,7 @@ function suscribir() {
   sb.channel("hogar-" + S.hogar)
     .on("postgres_changes", { event: "*", schema: "public", table: "movimientos", filter: `hogar_id=eq.${S.hogar}` }, (p) => {
       const r = p.new; if (!r || !r.id) return;
+      if ((r.data && r.data.__archivo) || (S.archivos || []).some(a => a.id === r.id)) { S.archivos = (S.archivos || []).filter(a => a.id !== r.id); if (!r.deleted && r.data) S.archivos.push(Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })); renderSuave(); return; }
       const i = S.data.movimientos.findIndex(x => x.id === r.id);
       const local = i >= 0 ? S.data.movimientos[i] : null;
       if (local && S._baseMov.get(r.id) !== movJ(local)) return; // cambio local pendiente: gana el local
@@ -4038,19 +4041,119 @@ function contexto12() {
   try {
     const c = cfgMesada(), a = resumenMesada(todayKey()), b = resumenMesada(E.addM(todayKey(), -1));
     return `## Mesada de Mateo (hijo, 15 años)
-Este mes le pasaron ${money(a.dado)} (${a.veces} veces); se sabe en qué usó ${money(a.usado)}${Object.keys(a.porUso).length ? " (" + Object.entries(a.porUso).map(([k, v]) => k + " " + money(v)).join(", ") + ")" : ""}; sin saber en qué: ${money(a.sinSaber)}. Mes pasado: ${money(b.dado)}.${c.tope ? " Tope mensual: " + money(c.tope) + "." : ""}`;
+Este mes le pasaron ${money(a.dado)} (${a.veces} veces); se sabe en qué usó ${money(a.usado)}${Object.keys(a.porUso).length ? " (" + Object.entries(a.porUso).map(([k, v]) => k + " " + money(v)).join(", ") + ")" : ""}; sin saber en qué: ${money(a.sinSaber)}. Mes pasado: ${money(b.dado)}.${c.tope ? " Tope mensual: " + money(c.tope) + "." : ""}
+
+${contextoSeguros()}`;
   } catch (e) { return ""; }
 }
 function reglas12() {
-  return `MESADA DE MATEO: si dicen que le pasaron/dieron/transfirieron plata a Mateo (el hijo), cargalo como gasto con "categoria":"${CAT_MESADA}" (descripción: para qué, si lo dicen; medio: efectivo o la cuenta que digan). Si cuentan en qué la gastó Mateo ("Mateo gastó 300 en el cine"), proponé {"tipo":"uso_mesada","monto":0,"en":"${USOS_MESADA.join("|")}","nota":"","fecha":"YYYY-MM-DD"}: eso NO es un gasto nuevo de la casa, solo anota en qué la usó. No uses "${CAT_MESADA}" para el colegio, la matrícula ni el celular de Mateo (son gastos fijos aparte).`;
+  return `MESADA DE MATEO: si dicen que le pasaron/dieron/transfirieron plata a Mateo (el hijo), cargalo como gasto con "categoria":"${CAT_MESADA}" (descripción: para qué, si lo dicen; medio: efectivo o la cuenta que digan). Si cuentan en qué la gastó Mateo ("Mateo gastó 300 en el cine"), proponé {"tipo":"uso_mesada","monto":0,"en":"${USOS_MESADA.join("|")}","nota":"","fecha":"YYYY-MM-DD"}: eso NO es un gasto nuevo de la casa, solo anota en qué la usó. No uses "${CAT_MESADA}" para el colegio, la matrícula ni el celular de Mateo (son gastos fijos aparte).
+${reglasSeguros()}`;
 }
-function desc12(a) { if (a.tipo === "uso_mesada") return `👦 Mateo usó <b>${money(+a.monto || 0)}</b> en <b>${esc(a.en || "Otros")}</b>${a.nota ? " · " + esc(a.nota) : ""} <span class="tiny mut">(no suma como gasto)</span>`; return null; }
-function aplicar12(a) { if (a.tipo === "uso_mesada") { cfgMesada(); S.data.mesadaUsos.push({ fecha: a.fecha || todayISO(), monto: +a.monto || 0, en: USOS_MESADA.includes(a.en) ? a.en : "Otros", nota: a.nota || "" }); return true; } return undefined; }
+function desc12(a) { if (a.tipo === "seguro") return descSeguro(a); if (a.tipo === "uso_mesada") return `👦 Mateo usó <b>${money(+a.monto || 0)}</b> en <b>${esc(a.en || "Otros")}</b>${a.nota ? " · " + esc(a.nota) : ""} <span class="tiny mut">(no suma como gasto)</span>`; return null; }
+function aplicar12(a) { if (a.tipo === "seguro") return aplicarSeguro(a); if (a.tipo === "uso_mesada") { cfgMesada(); S.data.mesadaUsos.push({ fecha: a.fecha || todayISO(), monto: +a.monto || 0, en: USOS_MESADA.includes(a.en) ? a.en : "Otros", nota: a.nota || "" }); return true; } return undefined; }
+
+// ===================== SEGUROS: qué cubre cada póliza (para consultar al asesor) =====================
+const SEGURO_HOGAR_SURA = {
+  id: "sura-G1626876", tipo: "hogar", nombre: "Seguro de la casa", compania: "Seguros Sura", poliza: "G1626876", reemplaza: "1505138",
+  bien: "Casa de Picaflor 6318, Montevideo", desde: "2026-11-28", hasta: "2027-11-28", moneda: "USD", total: 265.59,
+  pago: "10 cuotas por Abitab, el 14 de cada mes (dic 2026 a set 2027): 1ª U$S 31,59 y después U$S 26",
+  coberturas: [
+    { q: "Edificio: incendio, rayo y riesgos adicionales 1 al 16", monto: 100000 },
+    { q: "Desescombro (incluido en edificio)", monto: 10000 },
+    { q: "Hospedaje si la casa queda inhabitable (incluido en edificio)", monto: 10000 },
+    { q: "Vidrios (incluido en edificio)", monto: 150, deducible: 10 },
+    { q: "Contenido de la casa: riesgos 1 al 10 (incendio y otros)", monto: 15000 },
+    { q: "Robo / hurto de contenido (capítulo 3)", monto: 4000 },
+    { q: "Discos compactos y cintas (dentro de contenido)", monto: 400 },
+    { q: "Responsabilidad civil extracontractual (daños a terceros), incluye daños por incendio a casas linderas", monto: 50000 },
+    { q: "Accidentes personales: incapacidad total permanente o muerte por accidente, por cada habitante del hogar", monto: 4000 }
+  ],
+  notas: "Mora automática: si una cuota no se paga a tiempo, la póliza queda sin efecto. Condiciones generales en segurossura.com.uy."
+};
+function seguros() {
+  const L = (S.data.seguros = S.data.seguros || []);
+  if (!S.data._seguroHogarSeed) { if (!L.some(s => s.poliza === SEGURO_HOGAR_SURA.poliza)) L.push(JSON.parse(JSON.stringify(SEGURO_HOGAR_SURA))); S.data._seguroHogarSeed = true; }
+  return L;
+}
+const monS = (s, v) => (s.moneda === "USD" ? "U$S " : "$ ") + fmt(+v || 0, (+v % 1) ? 2 : 0);
+function seguroTexto(s) {
+  return `- ${s.nombre} (${s.compania || "?"}${s.poliza ? ", póliza " + s.poliza : ""})${s.bien ? " · " + s.bien : ""} · vigencia ${s.desde ? fmtDate(s.desde) : "?"} al ${s.hasta ? fmtDate(s.hasta) : "?"}${s.total ? " · costo anual " + monS(s, s.total) : ""}${s.pago ? " · pago: " + s.pago : ""}
+  Coberturas: ${(s.coberturas || []).map(c => `${c.q}: ${monS(s, c.monto)}${c.deducible ? " (deducible " + monS(s, c.deducible) + ")" : ""}`).join("; ")}${s.notas ? "\n  Notas: " + s.notas : ""}`;
+}
+function contextoSeguros() {
+  const L = seguros(); if (!L.length) return "";
+  const hoy = todayISO();
+  return `## Seguros de la familia (pólizas cargadas)\n${L.map(s => seguroTexto(s) + (s.hasta && s.hasta < hoy ? "\n  ⚠️ VENCIDA" : "")).join("\n")}`;
+}
+function reglasSeguros() {
+  return `SEGUROS: si preguntan qué cubre un seguro (la casa, el auto, etc.), si algo está cubierto, cuánto les pagan o qué deducible tiene, respondé con los datos de "Seguros de la familia": cobertura, monto máximo y deducible. Si lo que preguntan no figura en las coberturas, decí que no aparece en la póliza y que lo confirmen en las condiciones generales o llamando a la aseguradora; no inventes coberturas. Si falta un seguro (por ejemplo el del auto), pediles que te pasen la póliza en PDF. Si preguntan por una copia o imprimir la póliza, deciles que está en Gastos fijos → Seguros → \"Ver / imprimir póliza\" (si no está guardada, que la suban ahí o te la pasen). Si te pasan una póliza o renovación (el PDF se guarda solo al confirmar), proponé {"tipo":"seguro","tipoSeguro":"hogar|auto|vida|salud|otro","nombre":"","compania":"","poliza":"","bien":"","desde":"YYYY-MM-DD","hasta":"YYYY-MM-DD","moneda":"USD|UYU","total":0,"pago":"","coberturas":[{"q":"","monto":0,"deducible":0}],"notas":""} con TODAS las coberturas y montos que figuren, y además ajustá el gasto fijo del seguro si cambió el costo.`;
+}
+function descSeguro(a) { if (a.tipo === "seguro") return `🛡️ <b>${esc(a.nombre || "Seguro")}</b> · ${esc(a.compania || "")}${a.poliza ? " · póliza " + esc(a.poliza) : ""} · ${(a.coberturas || []).length} coberturas${a.hasta ? " · vence " + fmtDate(a.hasta) : ""}`; return null; }
+function aplicarSeguro(a) {
+  if (a.tipo !== "seguro") return undefined;
+  const L = seguros(), s = { id: (a.compania || "seg") + "-" + (a.poliza || Date.now()), tipo: a.tipoSeguro || "otro", nombre: a.nombre || "Seguro", compania: a.compania || "", poliza: a.poliza || "", bien: a.bien || "", desde: a.desde || "", hasta: a.hasta || "", moneda: a.moneda || "USD", total: +a.total || 0, pago: a.pago || "", coberturas: (a.coberturas || []).map(c => ({ q: c.q || "", monto: +c.monto || 0, deducible: +c.deducible || 0 })), notas: a.notas || "" };
+  const i = L.findIndex(x => (s.poliza && x.poliza === s.poliza) || (x.tipo === s.tipo && x.nombre === s.nombre));
+  if (i >= 0) { if (L[i].archivoId) s.archivoId = L[i].archivoId; L[i] = s; } else L.push(s);
+  setTimeout(() => guardarPolizaAdjunta(s), 300); return true;
+}
+function segurosHTML() {
+  const L = seguros();
+  return `<div class="card" style="margin-top:16px"><h3>🛡️ Seguros: qué cubre cada uno <span class="hint">pasale la póliza en PDF al asesor para cargar otra</span></h3>
+  ${L.map((s, i) => `<details ${i === 0 ? "open" : ""} style="margin-bottom:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px"><summary style="cursor:pointer;font-weight:700">${s.tipo === "auto" ? "🚗" : s.tipo === "hogar" ? "🏠" : "🛡️"} ${esc(s.nombre)} · ${esc(s.compania || "")} <span class="tiny mut">${s.poliza ? "póliza " + esc(s.poliza) + " · " : ""}vence ${s.hasta ? fmtDate(s.hasta) : "?"}${s.total ? " · " + monS(s, s.total) + "/año" : ""}</span></summary>
+    ${s.pago ? `<div class="small" style="margin:6px 0">💳 ${esc(s.pago)}</div>` : ""}
+    <div style="overflow-x:auto"><table class="t" style="margin-top:6px"><thead><tr><th>Qué cubre</th><th class="r">Hasta</th><th class="r">Deducible</th></tr></thead><tbody>${(s.coberturas || []).map(c => `<tr><td>${esc(c.q)}</td><td class="r"><b>${monS(s, c.monto)}</b></td><td class="r">${c.deducible ? monS(s, c.deducible) : "—"}</td></tr>`).join("")}</tbody></table></div>
+    ${s.notas ? `<div class="tiny mut" style="margin-top:6px">${esc(s.notas)}</div>` : ""}
+    <div style="margin-top:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">${archivoSeguroHTML(s, i)}</div>
+    <div style="margin-top:6px"><a href="#" data-segdel="${i}" class="tiny">Quitar esta póliza</a></div></details>`).join("") || `<div class="small mut">Todavía no hay pólizas cargadas.</div>`}
+  ${L.some(s => s.tipo === "auto") ? "" : `<div class="msg amarillo"><span class="e">🚗</span><span>Falta la póliza del <b>seguro del auto</b>: pasásela al asesor (📎 o Compartir) y la cargo con todas sus coberturas.</span></div>`}
+  <div class="tiny mut" style="margin-top:6px">Preguntale al asesor, por ejemplo: <i>"¿el seguro de la casa cubre si me roban la tele?"</i> o <i>"¿cuánto cubre por un vidrio roto?"</i></div></div>`;
+}
+function bindSeguros(r) { bindArchivosSeguros(r); r.querySelectorAll("[data-segdel]").forEach(a => a.onclick = ev => { ev.preventDefault(); if (!confirm("¿Quitar esta póliza de la lista?")) return; seguros().splice(+a.dataset.segdel, 1); commit("Póliza quitada"); }); }
+
+// ===================== ARCHIVOS GUARDADOS (pólizas, etc.) en la nube del hogar =====================
+// Se guardan como filas especiales de la tabla de movimientos (marcadas __archivo), así usan la misma seguridad del hogar.
+async function guardarArchivo(adj, meta) {
+  if (typeof sb === "undefined" || !sb || !S.hogar) throw new Error("Para guardar archivos tenés que estar con la cuenta en la nube");
+  if (adj.data.length > 7e6) throw new Error("El archivo es muy grande (máx. ~5 MB)");
+  const id = uuid(), data = Object.assign({ __archivo: true, nombre: adj.name, mime: adj.mime, b64: adj.data, fecha: todayISO() }, meta || {});
+  const r = await sb.from("movimientos").insert({ id, hogar_id: S.hogar, data, por: S.user.nombre, deleted: false }); if (r.error) throw r.error;
+  S.archivos = (S.archivos || []).concat([Object.assign({}, data, { id, por: S.user.nombre })]); return id;
+}
+async function borrarArchivo(id) { if (typeof sb !== "undefined" && sb) { const r = await sb.from("movimientos").update({ deleted: true, updated_at: new Date().toISOString() }).eq("id", id); if (r.error) throw r.error; } S.archivos = (S.archivos || []).filter(a => a.id !== id); }
+function abrirArchivo(id) {
+  const a = (S.archivos || []).find(x => x.id === id); if (!a) return toast("No encontré el archivo (¿está cargando?)");
+  const bin = atob(a.b64), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([u8], { type: a.mime || "application/pdf" }));
+  const w = window.open(url, "_blank");
+  if (!w) { const l = document.createElement("a"); l.href = url; l.download = a.nombre || "archivo.pdf"; document.body.appendChild(l); l.click(); l.remove(); }
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+const archivoDe = s => (S.archivos || []).find(a => (s.archivoId && a.id === s.archivoId) || (a.ref && a.ref === "seguro:" + (s.poliza || s.id)));
+// al confirmar una póliza desde el chat, guarda también el PDF que se adjuntó
+async function guardarPolizaAdjunta(s) {
+  const f = (S._ultAdj || []).find(x => /pdf|image/.test(x.mime || "")); if (!f || archivoDe(s)) return;
+  try { s.archivoId = await guardarArchivo(f, { tipo: "poliza", ref: "seguro:" + (s.poliza || s.id), titulo: s.nombre }); commit("📄 Póliza guardada"); } catch (e) { toast("No pude guardar el PDF: " + e.message); }
+}
+function archivoSeguroHTML(s, i) {
+  const a = archivoDe(s);
+  return a ? `<button class="btn sm blue" data-segver="${i}">📄 Ver / imprimir póliza</button> <span class="tiny mut">${esc(a.nombre || "")} · guardada el ${fmtDate(a.fecha || todayISO())}</span> <a href="#" class="tiny" data-segarchdel="${i}">quitar PDF</a>`
+    : `<label class="btn sm" style="cursor:pointer">📎 Guardar el PDF de la póliza<input type="file" accept="application/pdf,image/*" data-segsub="${i}" style="display:none"></label> <span class="tiny mut">así queda una copia para imprimir</span>`;
+}
+function bindArchivosSeguros(r) {
+  const L = seguros();
+  r.querySelectorAll("[data-segver]").forEach(b => b.onclick = () => { const a = archivoDe(L[+b.dataset.segver]); a && abrirArchivo(a.id); });
+  r.querySelectorAll("[data-segarchdel]").forEach(b => b.onclick = async ev => { ev.preventDefault(); const s = L[+b.dataset.segarchdel], a = archivoDe(s); if (!a || !confirm("¿Quitar el PDF guardado de esta póliza?")) return; try { await borrarArchivo(a.id); delete s.archivoId; commit("PDF quitado"); } catch (e) { toast(e.message); } });
+  r.querySelectorAll("[data-segsub]").forEach(inp => inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return; const s = L[+inp.dataset.segsub];
+    try { toast("Guardando…"); const adj = await fileToAdj(f); s.archivoId = await guardarArchivo(adj, { tipo: "poliza", ref: "seguro:" + (s.poliza || s.id), titulo: s.nombre }); commit("📄 Póliza guardada"); } catch (e) { toast("No pude guardarla: " + e.message); }
+  });
+}
 
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
   panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], mesada: [vMesada, bindMesada], proyeccion: [vProyeccion],
-  fijos: [vFijos, bindFijos], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
+  fijos: [() => vFijos() + segurosHTML(), (r) => { bindFijos(r); bindSeguros(r); }], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
 function shell() {
