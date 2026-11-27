@@ -335,6 +335,7 @@ const Engine = (() => {
   function fijoMonto(fx, m, data, movs) {
     const row = Object.assign({}, fx);
     if (fx.usaPresupuestoComida) row._monto = data.config.presComida;
+    if (fx.porMes && fx.porMes[m] != null) row._monto = num(fx.porMes[m]); // monto real de una factura de ese mes
     let v = recurring(row, m, data, "monto");
     if (fx.descuentaNafta && v > 0) {
       let real = 0;
@@ -1699,6 +1700,13 @@ function aplicarAccion(a) {
   if (a.tipo === "ajustar_precio") {
     const lista = a.lista === "ingresos" ? d.ingresos : d.fijos; const x = buscaRecurrente(a); if (!x || !(+a.montoNuevo >= 0)) return false;
     const des = /^\d{4}-\d{2}$/.test(a.desde || "") ? a.desde : todayKey(); const ini = x.desde || d.config.mesInicio;
+    if (lista === d.fijos && (a.deFactura || x.porMes) && !x.hasta) { // facturas que varían (UTE, OSE…): una sola fila; los meses anteriores conservan su monto
+      x.porMes = x.porMes || {}; for (let k = 1; k <= 12; k++) { const mm = E.addM(des, -k); if (mm < ini) break; if (x.porMes[mm] == null) x.porMes[mm] = +x.monto; }
+      Object.keys(x.porMes).forEach(mm => { if (mm >= des) delete x.porMes[mm]; });
+      const ant = +x.monto; x.monto = +a.montoNuevo; if (a.moneda) x.moneda = a.moneda;
+      if (a.deFactura) { x.origen = "factura"; x.facturaFecha = todayISO(); }
+      x.nota = `${a.deFactura ? "Monto real según la última factura" : "Precio nuevo"} desde ${E.mesLargo(des)} (antes $ ${fmt(ant, 0)}). Los meses anteriores quedan con lo que se pagó.`; return true;
+    }
     if (des <= ini) { x.monto = +a.montoNuevo; if (a.moneda) x.moneda = a.moneda; if (a.deFactura) { x.origen = "factura"; x.facturaFecha = todayISO(); } return true; }
     const nuevo = Object.assign(JSON.parse(JSON.stringify(x)), { monto: +a.montoNuevo, desde: des, hasta: x.hasta || null });
     if (a.moneda) nuevo.moneda = a.moneda; delete nuevo.formula; if (a.deFactura) { nuevo.origen = "factura"; nuevo.facturaFecha = todayISO(); } else delete nuevo.origen;
