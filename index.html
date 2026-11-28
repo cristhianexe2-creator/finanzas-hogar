@@ -817,7 +817,7 @@ const AV_ICON = { rojo: "🔴", verde: "🟢", naranja: "⚠️", amarillo: "�
 
 // ===================== PANTALLAS =====================
 const NAV = [
-  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["progreso", "🏆", "Mi progreso"], ["mesada", "👦", "Mesada de Mateo"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
+  ["panel", "📊", "Panel"], ["cargar", "➕", "Cargar"], ["gastos", "🧾", "Últimos gastos"], ["progreso", "🏆", "Mi progreso"], ["mesada", "👦", "Mesada de Mateo"], ["plata", "💰", "¿Qué hago con esta plata?"], ["super", "🧾", "Compras con ticket"], ["asesor", "🧭", "Asesor"], ["rescate", "🛟", "Plan rescate"], ["deudas", "🧮", "Plan de deudas"], ["cazador", "🕵️", "Cazador de cargos"], ["provisiones", "🗓️", "Gastos que se vienen"], ["viaje", "✈️", "Viaje"], ["gestiones", "📋", "Gestiones"], ["permitir", "🤔", "¿Me lo puedo permitir?"], ["beneficios", "🎁", "Beneficios y puntos"], ["tarjetas", "💳", "Tarjetas"],
   ["calendario", "📅", "Calendario"], ["proyeccion", "📈", "Proyección"], ["informes", "📑", "Informes"], ["wrapped", "🎁", "Tu 2026"], ["fijos", "🧾", "Gastos fijos"], ["ingresos", "💵", "Ingresos"],
   ["prestamos", "🏦", "Préstamos"], ["ahorro", "🐷", "Ahorro y metas"], ["pendientes", "✅", "Pendientes"], ["config", "⚙️", "Configuración"]
 ];
@@ -852,7 +852,7 @@ function vPanel() {
   <div style="margin-top:16px">${cardHoy()}</div>${cardSemana()}
   <div class="grid g21" style="margin-top:16px">
     <div class="card"><h3>🧭 Consejos del mes <span class="hint"><a href="#" data-go="asesor">Ver el asesor completo →</a></span></h3>
-      <div class="avisos">${(S.mes === todayKey() ? avisosTarjetasHoy(S.data, S.R) : []).concat(S.mes === todayKey() ? interesesAviso() : []).concat(S.mes === todayKey() && typeof avisos9 === "function" ? avisos9() : []).concat(A.avisos).slice(0, 8).map(a => `<div class="msg ${a.tipo}"><span class="e">${AV_ICON[a.tipo]}</span><span>${esc(a.txt)}</span></div>`).join("")}</div></div>
+      <div class="avisos">${(S.mes === todayKey() ? avisosTarjetasHoy(S.data, S.R) : []).concat(S.mes === todayKey() ? interesesAviso() : []).concat(S.mes === todayKey() && typeof avisos9 === "function" ? avisos9() : []).concat(S.mes === todayKey() && typeof avisosSuper === "function" ? avisosSuper() : []).concat(A.avisos).slice(0, 8).map(a => `<div class="msg ${a.tipo}"><span class="e">${AV_ICON[a.tipo]}</span><span>${esc(a.txt)}</span></div>`).join("")}</div></div>
     <div class="card"><h3>💸 En qué se va la plata</h3>
       ${dist.map(([n, v, c]) => `<div class="rowbar"><span class="n">${n}</span><span class="v">${money(v)}</span>${barHTML(p.I ? v / p.I : 0, c)}</div>`).join("")}
       ${cuotasPrestamosHTML(S.mes)}
@@ -1466,6 +1466,8 @@ ${typeof contexto11 === "function" ? contexto11() : ""}
 
 ${typeof contexto12 === "function" ? contexto12() : ""}
 
+${typeof contexto13 === "function" ? contexto13() : ""}
+
 ## Condiciones de las tarjetas (exterior y refinanciación)
 ${typeof condicionesTarjetasTexto === "function" ? condicionesTarjetasTexto() : "-"}
 
@@ -1494,6 +1496,7 @@ ${typeof REGLAS9 === "string" ? REGLAS9 : ""}
 ${typeof reglasIRPF === "function" ? reglasIRPF() : ""}
 ${typeof reglas11 === "function" ? reglas11() : ""}
 ${typeof reglas12 === "function" ? reglas12() : ""}
+${typeof reglas13 === "function" ? reglas13() : ""}
 VIAJES Y COMPRAS EN EL EXTERIOR: usá "Condiciones de las tarjetas". Al elegir tarjeta para una compra en el exterior o en una web en dólares, sumá el recargo de cada tarjeta (una sin recargo puede convenir más). Si preguntan por gastar en un viaje, cuánto les va a costar o si conviene refinanciar en cuotas las compras del exterior, pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"refinanciar","monto":0,"moneda":"USD","tarjeta":"nombre exacto","cuotas":0}} (cuotas 0 = mostrar varias opciones). Recordá: conviene pagar los dólares en dólares, y refinanciar al 6% es mucho más barato que pagar el mínimo.
 TARJETA: SIEMPRE que hablen de una compra que van a hacer (¿me lo puedo permitir?, quiero comprar X, ¿en cuotas o contado?, simulaciones, regalos, viajes), además de responder lo que preguntan, recomendá con qué tarjeta pagarla y por qué (días hasta pagarla, disponible, beneficio del día, puntos, cuánto queda usada). Para eso pedí el cálculo a la app con {"respuesta":"","acciones":[],"calculo":{"tipo":"tarjeta","monto":0,"moneda":"UYU|USD","descripcion":"","categoria":"","cuotas":1}} (si no dicen el monto, estimalo y aclaralo). Si una tarjeta cierra en 1 a 3 días, decilo y sugerí esperar o usar otra. No hace falta para gastos que ya hicieron y están cargando.
 COSTUMBRES: usá "Costumbres" para completar categoría y medio cuando el usuario no los dice. Si en un ticket no se ve el medio de pago pero ese comercio se pagó SIEMPRE con el mismo medio (2 veces o más), usalo, no lo pongas en "faltan" y aclaralo en la respuesta ("lo puse con la X, como siempre").
@@ -1543,6 +1546,7 @@ function actSummary(a) {
   if (typeof desc9 === "function") { const r9 = desc9(a); if (r9) return r9; }
   if (typeof desc11 === "function") { const r11 = desc11(a); if (r11) return r11; }
   if (typeof desc12 === "function") { const r12 = desc12(a); if (r12) return r12; }
+  if (typeof desc13 === "function") { const r13 = desc13(a); if (r13) return r13; }
   const mo = a.moneda === "USD" ? "U$S " : "$ ";
   if (a.tipo === "movimiento") return `${a.tipoMov && a.tipoMov !== "Gasto" ? "💰 " + a.tipoMov : "🧾"} <b>${esc(a.descripcion)}</b> · ${mo}${fmt(+a.monto || 0, 2)} · ${esc(a.medio || "¿medio?")}${a.cuotas > 1 ? " · " + a.cuotas + " cuotas" : ""} · <span class="mut">${fmtDate(a.fecha)}${a.categoria ? " · " + esc(a.categoria) : ""}</span>`;
   if (a.tipo === "compra_tarjeta") return `💳 <b>${esc(a.comercio)}</b> · cuota ${a.cuotaInicial}/${a.cuotas} de ${mo}${fmt(+a.valorCuota || 0, 2)} · ${esc(a.tarjeta)} · <span class="mut">resumen ${a.resumen ? E.mesCorto(a.resumen) : "?"}</span>`;
@@ -1663,7 +1667,7 @@ async function sendChat(q, ver) {
     const raw = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
     let j = parseJSON(raw) || { respuesta: raw, acciones: [] };
     if (j.calculo && typeof j.calculo === "object" && typeof calculoChat === "function") {
-      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : j.calculo.tipo === "refinanciar" && typeof refinTexto === "function" ? refinTexto(j.calculo) : j.calculo.tipo === "sueldo" && typeof irpfTexto === "function" ? irpfTexto(j.calculo) : calculoChat(j.calculo);
+      const res = j.calculo.tipo === "tarjeta" && typeof tarjetaParaTexto === "function" ? tarjetaParaTexto(j.calculo) : j.calculo.tipo === "refinanciar" && typeof refinTexto === "function" ? refinTexto(j.calculo) : j.calculo.tipo === "sueldo" && typeof irpfTexto === "function" ? irpfTexto(j.calculo) : j.calculo.tipo === "plata_extra" && typeof plataTexto === "function" ? plataTexto(j.calculo) : calculoChat(j.calculo);
       hist.push({ role: "model", parts: [{ text: raw }] });
       hist.push({ role: "user", parts: [{ text: "RESULTADO DEL CÁLCULO DE LA APP: " + res + "\nAhora respondé la pregunta original usando estos números (no pidas otro cálculo). Si ayuda, agregá un gráfico." }] });
       const raw2 = await geminiAsk(hist, contextoChat(), { json: true, temp: 0.2 });
@@ -1688,6 +1692,7 @@ function aplicarAccion(a) {
   if (typeof aplicar9 === "function") { const r9 = aplicar9(a); if (r9 !== undefined) return r9; }
   if (typeof aplicar11 === "function") { const r11 = aplicar11(a); if (r11 !== undefined) return r11; }
   if (typeof aplicar12 === "function") { const r12 = aplicar12(a); if (r12 !== undefined) return r12; }
+  if (typeof aplicar13 === "function") { const r13 = aplicar13(a); if (r13 !== undefined) return r13; }
   if (a.tipo === "movimiento") {
     const isC = L.isCard(a.medio);
     d.movimientos.unshift({ fecha: a.fecha || todayISO(), tipo: a.tipoMov || "Gasto", descripcion: a.descripcion || "Sin descripción", categoria: a.categoria || null, persona: a.persona || (S.user ? S.user.nombre : d.config.personas[0]), moneda: a.moneda || "UYU", monto: +a.monto, medio: a.medio, cuotas: isC ? (+a.cuotas || 1) : null });
@@ -2404,7 +2409,8 @@ async function cloudStart(user) {
     const cache = cacheLoad();
     const filas = m.data || [];
     S.archivos = filas.filter(r => r.data && r.data.__archivo).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at }));
-    const data = Object.assign({}, d.data.data, { movimientos: filas.filter(r => !(r.data && r.data.__archivo)).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })) });
+    S.tickets = filas.filter(r => r.data && r.data.__ticket).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at }));
+    const data = Object.assign({}, d.data.data, { movimientos: filas.filter(r => !(r.data && (r.data.__archivo || r.data.__ticket))).map(r => Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })) });
     S._docVer = d.data.version;
     S._baseDocJ = JSON.stringify(docPart(d.data.data));
     S._baseMov = new Map(data.movimientos.map(x => [x.id, movJ(x)]));
@@ -2469,6 +2475,7 @@ function suscribir() {
   sb.channel("hogar-" + S.hogar)
     .on("postgres_changes", { event: "*", schema: "public", table: "movimientos", filter: `hogar_id=eq.${S.hogar}` }, (p) => {
       const r = p.new; if (!r || !r.id) return;
+      if ((r.data && r.data.__ticket) || (S.tickets || []).some(a => a.id === r.id)) { S.tickets = (S.tickets || []).filter(a => a.id !== r.id); if (!r.deleted && r.data) S.tickets.push(Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })); renderSuave(); return; }
       if ((r.data && r.data.__archivo) || (S.archivos || []).some(a => a.id === r.id)) { S.archivos = (S.archivos || []).filter(a => a.id !== r.id); if (!r.deleted && r.data) S.archivos.push(Object.assign({}, r.data, { id: r.id, por: r.por, _ts: r.created_at })); renderSuave(); return; }
       const i = S.data.movimientos.findIndex(x => x.id === r.id);
       const local = i >= 0 ? S.data.movimientos[i] : null;
@@ -4158,9 +4165,239 @@ function bindArchivosSeguros(r) {
   });
 }
 
+// ===================== ¿QUÉ HAGO CON ESTA PLATA? (aguinaldo, SRV, premio, herencia…) =====================
+function cfgPlata() {
+  return (S.data.config.plataExtra = Object.assign({ monto: "", moneda: "UYU", tasaInv: 4, kmMes: "", consumo: 12, precioNafta: 80, precioAuto: "", ventaAuto: "", kwh100: 15, precioKwh: 8.45, difFijos: 0, inversion: "", gananciaMes: "" }, S.data.config.plataExtra || {}));
+}
+function egresoMensualProm() { const k = S.R.months.indexOf(todayKey()), v = [0, 1, 2].map(i => (S.R.proy[k + i] || {}).I).filter(x => x > 0); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0; }
+function naftaMensualDatos() {
+  const C = todasCompras(false), hoy = todayKey(), meses = [1, 2, 3].map(i => E.addM(hoy, -i));
+  const v = meses.map(m => C.filter(c => c.fecha.slice(0, 7) === m && (/nafta|ancap|combust|petrobras|axion|disa|estaci[oó]n de servicio/i.test(c.desc) || /combustible/i.test(c.cat))).reduce((s, c) => s + c.v, 0));
+  const conDato = v.filter(x => x > 0); return conDato.length ? conDato.reduce((s, x) => s + x, 0) / conDato.length : 0;
+}
+// Plan: 1) colchón de 1 mes, 2) deudas caras (≥30%), 3) completar fondo a 3 meses, 4) deudas que cuestan más que invertir, 5) el resto se compara entre opciones
+function planPlata(montoIn, monedaIn, o) {
+  o = Object.assign({}, cfgPlata(), o || {});
+  const TC = +S.data.config.tc || 40, monto = monedaIn === "USD" ? (+montoIn || 0) * TC : (+montoIn || 0);
+  let resto = monto; const pasos = [];
+  const egr = egresoMensualProm(), fondoAhorro = S.data.ahorro.find(a => /emergencia/i.test(a.nombre));
+  let fondoTiene = fondoAhorro ? uyuEq(fondoAhorro.moneda || "UYU", +fondoAhorro.ahorrado || 0) : 0;
+  const fondo = (meses, etiqueta, tope) => { const falta = Math.max(0, meses * egr - fondoTiene), p = Math.min(resto, falta, tope ?? Infinity); if (p > 500) { pasos.push({ tipo: "fondo", nombre: etiqueta, paga: p, nota: `queda en ${fmt(Math.min(meses, (fondoTiene + p) / egr), 1)} meses de gastos` }); fondoTiene += p; resto -= p; } };
+  const D = deudas().map(x => Object.assign({}, x)).sort((a, b) => b.tea - a.tea), tInv = (+o.tasaInv || 4) / 100;
+  const pagar = (filtro, etiqueta) => D.filter(x => x.saldo > 1 && filtro(x)).forEach(x => {
+    if (resto <= 0) return; const p = Math.min(resto, x.saldo), total = p >= x.saldo - 1;
+    const futuro = x.faltan ? x.cuota * x.faltan : null, ahorroInt = futuro ? Math.max(0, (futuro - x.saldo) * (p / x.saldo)) : p * x.tea;
+    pasos.push({ tipo: "deuda", nombre: x.nombre, paga: p, total, tea: x.tea, estimada: x.estimada, libera: total ? x.cuota : 0, faltan: x.faltan, ahorroInt, porAnio: !futuro, etiqueta });
+    x.saldo -= p; resto -= p;
+  });
+  fondo(0.5, "Colchón de emergencia (medio mes)", monto * 0.25);
+  pagar(x => x.tea >= 0.30, "deuda cara");
+  fondo(3, "Fondo de emergencia (hasta 3 meses)");
+  pagar(x => x.tea > tInv + 0.02, "deuda que cuesta más que invertir");
+  // efecto en los meses: cuotas que dejás de pagar
+  const k = S.R.months.indexOf(todayKey()), libera = pasos.filter(p => p.libera > 0);
+  const antes = [], despues = [];
+  for (let i = 1; i <= 12; i++) { const p = S.R.proy[k + i]; if (!p) break; const lib = libera.reduce((s, x) => s + (!x.faltan || i <= x.faltan ? x.libera : 0), 0); antes.push(p.J); despues.push(p.J + lib); }
+  const liberaMes = libera.reduce((s, x) => s + x.libera, 0);
+  // opciones para lo que sobra
+  const op = [], opTodo = resto <= 1000, base = opTodo ? monto : resto;
+  if (opTodo && pasos.length) op.push({ id: "plan", nombre: "El plan recomendado (deudas + fondo)", mes: pasos.reduce((s, p) => s + (p.libera || 0), 0), cinco: pasos.reduce((s, p) => s + (p.porAnio ? p.ahorroInt * 5 : p.ahorroInt || 0), 0), riesgo: "ninguno (ahorro seguro)", liquidez: "el fondo sí; lo pagado no", nota: "intereses que te ahorrás + cuotas que dejás de pagar" });
+  if (base > 1000) {
+    const resto = base;
+    op.push({ id: "inv", nombre: "Invertir (plazo fijo / letras, en dólares)", mes: resto * tInv / 12, cinco: resto * (Math.pow(1 + tInv, 5) - 1), riesgo: "bajo", liquidez: "alta (la recuperás)", nota: `supone ${fmt(tInv * 100, 1)}% anual` });
+    const nafta = +o.kmMes > 0 ? (+o.kmMes / (+o.consumo || 12)) * (+o.precioNafta || 80) : naftaMensualDatos();
+    if (nafta > 0 || +o.precioAuto > 0) {
+      const km = +o.kmMes > 0 ? +o.kmMes : nafta / (+o.precioNafta || 80) * (+o.consumo || 12), luz = km / 100 * (+o.kwh100 || 15) * (+o.precioKwh || 8.45);
+      const ahorro = nafta - luz - (+o.difFijos || 0), costo = Math.max(0, ((+o.precioAuto || 0) - (+o.ventaAuto || 0)) * TC);
+      op.push({ id: "ev", nombre: "Auto eléctrico", mes: ahorro, cinco: ahorro * 60 - (costo > resto ? 0 : 0), riesgo: "medio (el auto pierde valor)", liquidez: "baja", payback: ahorro > 0 && costo ? costo / ahorro : null, costo, nota: `nafta hoy ≈ ${money(nafta)}/mes${+o.kmMes ? "" : " (según tus gastos)"} → luz ≈ ${money(luz)}/mes por ${fmt(km, 0)} km${costo ? ` · te cuesta ${money(costo)}${costo > resto ? " (más de lo que te queda)" : ""}` : " · poné el precio del auto para ver en cuánto se paga"}` });
+    }
+    if (+o.inversion > 0 && +o.gananciaMes > 0) { const inv = +o.inversion * (o.monedaNeg === "UYU" ? 1 : TC), g = +o.gananciaMes; op.push({ id: "neg", nombre: "Poner un negocio", mes: g, cinco: g * 60 - inv, riesgo: "alto (muchos negocios chicos no pasan el 2º año)", liquidez: "baja", payback: inv / g, costo: inv, nota: `inversión ${money(inv)}, ganancia estimada ${money(g)}/mes` }); }
+    const baratas = D.filter(x => x.saldo > 1); if (baratas.length) { const x = baratas[0], p = Math.min(resto, x.saldo); op.push({ id: "deb", nombre: `Adelantar ${x.nombre}`, mes: p >= x.saldo - 1 ? x.cuota : 0, cinco: p * (Math.pow(1 + x.tea, 5) - 1), riesgo: "ninguno (ahorro seguro)", liquidez: "baja", nota: `tasa ${fmt(x.tea * 100, 1)}% anual${x.estimada ? " (estimada)" : ""}` }); }
+  }
+  return { monto, moneda: monedaIn, TC, pasos, resto, op, opTodo, liberaMes, rojoAntes: antes.filter(v => v < 0).length, rojoDespues: despues.filter(v => v < 0).length, egr, fondoTiene, antes, despues };
+}
+function plataTexto(c) {
+  const P = planPlata(c.monto, c.moneda || "UYU", c);
+  const L = [`Monto: ${money(P.monto)}${P.moneda === "USD" ? ` (U$S ${fmt(+c.monto)} a ${fmt(P.TC, 2)})` : ""}. Gasto mensual de la casa ≈ ${money(P.egr)}; fondo de emergencia actual ${money(P.fondoTiene - P.pasos.filter(p => p.tipo === "fondo").reduce((s, p) => s + p.paga, 0))}.`,
+    `PLAN RECOMENDADO (en este orden):`];
+  P.pasos.forEach((p, i) => L.push(`${i + 1}. ${p.tipo === "fondo" ? p.nombre + ": " + money(p.paga) + " (" + p.nota + ")" : `${p.total ? "Cancelar" : "Adelantar"} ${p.nombre}: ${money(p.paga)} · tasa ${fmt(p.tea * 100, 1)}%${p.estimada ? " estimada" : ""} · ${p.total ? `libera ${money(p.libera)}/mes` : "baja el saldo"} · ahorro de intereses ≈ ${money(p.ahorroInt)}${p.porAnio ? " por año" : ""}`}`));
+  L.push(`Te libera ${money(P.liberaMes)} por mes. Meses en rojo en el próximo año: ${P.rojoAntes} → ${P.rojoDespues}.`);
+  if (P.op.length) { L.push(P.opTodo ? `No sobra después de lo urgente. Comparación si usaras TODA la plata en otra cosa:` : `Sobran ${money(P.resto)}. Opciones para eso:`); P.op.forEach(x => L.push(`- ${x.nombre}: ${money(x.mes)}/mes${x.payback ? `, se paga en ${fmt(x.payback / 12, 1)} años` : ""}; riesgo ${x.riesgo}; ${x.nota || ""}`)); }
+  L.push("Recordá: cancelar antes puede tener costo de cancelación anticipada; confirmalo con el banco. Las decisiones son del usuario.");
+  return L.join("\n");
+}
+function vPlata() {
+  const c = cfgPlata(), hay = +c.monto > 0, P = hay ? planPlata(c.monto, c.moneda) : null;
+  const inp = (id, l, v, ph, w) => `<label class="small">${l}<input id="${id}" type="number" inputmode="decimal" value="${v ?? ""}" placeholder="${ph || ""}"${w ? ` style="width:${w}"` : ""}></label>`;
+  return header("💰 ¿Qué hago con esta plata?", "Aguinaldo, SRV, un premio, una herencia… La app arma el plan con tus deudas, tasas y gastos reales.", false) + `
+  <div class="card"><div class="grid g4">
+    ${inp("plM", "Monto", c.monto, "ej. 30000")}
+    <label class="small">Moneda<select id="plMon"><option ${c.moneda === "UYU" ? "selected" : ""} value="UYU">Pesos</option><option ${c.moneda === "USD" ? "selected" : ""} value="USD">Dólares</option></select></label>
+    ${inp("plTasa", "Si lo invertís: % anual", c.tasaInv, "4")}
+    <label class="small">&nbsp;<button class="btn pri" id="plGo">Calcular</button></label></div>
+    <details style="margin-top:10px"><summary class="small" style="cursor:pointer"><b>🚗 Comparar con un auto eléctrico</b> (opcional)</summary><div class="grid g4" style="margin-top:8px">
+      ${inp("plKm", "Km por mes", c.kmMes, "según tu nafta")}${inp("plCons", "Tu auto: km por litro", c.consumo)}${inp("plNafta", "Nafta $/litro", c.precioNafta)}${inp("plPA", "Precio auto eléctrico (U$S)", c.precioAuto, "ej. 28000")}
+      ${inp("plVA", "Vendés el tuyo en (U$S)", c.ventaAuto, "opcional")}${inp("plKwh", "Consumo kWh/100 km", c.kwh100)}${inp("plPk", "UTE $/kWh", c.precioKwh)}${inp("plDif", "Seguro/patente: diferencia $/mes", c.difFijos, "0")}</div></details>
+    <details style="margin-top:8px"><summary class="small" style="cursor:pointer"><b>🏪 Comparar con poner un negocio</b> (opcional)</summary><div class="grid g4" style="margin-top:8px">
+      ${inp("plInv", "Inversión (U$S)", c.inversion, "ej. 20000")}${inp("plGan", "Ganancia neta por mes ($)", c.gananciaMes, "lo que te quedaría")}</div></details>
+  </div>
+  ${P ? `<div class="grid g4" style="margin-top:16px">
+    <div class="card kpi k-blue"><div class="lab">💰 Plata a ubicar</div><div class="val">${money(P.monto)}</div><div class="foot">${P.moneda === "USD" ? "U$S " + fmt(+c.monto) + " × " + fmt(P.TC, 2) : "en pesos"}</div></div>
+    <div class="card kpi k-green"><div class="lab">🔓 Te libera por mes</div><div class="val">${money(P.liberaMes)}</div><div class="foot">cuotas que dejás de pagar</div></div>
+    <div class="card kpi ${P.rojoDespues < P.rojoAntes ? "k-green" : "k-amber"}"><div class="lab">🚦 Meses en rojo (12 meses)</div><div class="val">${P.rojoAntes} → ${P.rojoDespues}</div><div class="foot">antes → después del plan</div></div>
+    <div class="card kpi k-violet"><div class="lab">🧺 Sobra para otra cosa</div><div class="val">${money(P.resto)}</div><div class="foot">después de lo urgente</div></div></div>
+  <div class="card" style="margin-top:16px"><h3>📋 Plan recomendado, en este orden</h3>
+    ${P.pasos.map((p, i) => `<div class="rowbar"><span class="n"><b>${i + 1}.</b> ${p.tipo === "fondo" ? `🛟 ${esc(p.nombre)} <span class="tiny mut">${esc(p.nota)}</span>` : `${p.total ? "✅ Cancelar" : "➖ Adelantar"} <b>${esc(p.nombre)}</b> <span class="tiny mut">tasa ${fmt(p.tea * 100, 1)}%${p.estimada ? " (estimada)" : ""} · ${p.total ? `libera ${money(p.libera)}/mes` : "baja el saldo"} · te ahorrás ≈ ${money(p.ahorroInt)} de intereses${p.porAnio ? " por año" : ""}</span>`}</span><span class="v">${money(p.paga)}</span></div>`).join("") || `<div class="small mut">No hay deudas caras ni falta fondo de emergencia.</div>`}
+    <div class="tiny mut" style="margin-top:8px">Orden: primero un colchón chico (medio mes de gastos, como máximo un 25% de la plata), después las deudas más caras (≥30% anual), completar el fondo a 3 meses y las deudas que cuestan más que lo que rinde invertir. Antes de cancelar, preguntá al banco si cobra cancelación anticipada.</div></div>
+  ${P.antes.length ? `<div class="card" style="margin-top:16px"><h3>📈 Cómo quedan tus meses</h3>${svgLines(P.antes.map((_, i) => E.mesCorto(E.addM(todayKey(), i + 1))), [{ name: "Sin el plan", values: P.antes.map(Math.round), color: "#DC2626" }, { name: "Con el plan", values: P.despues.map(Math.round), color: "#16A34A", w: 3 }], { h: 180 })}</div>` : ""}
+  ${P.op.length ? `<div class="card" style="margin-top:16px"><h3>⚖️ ${P.opTodo ? "¿Y si usaras toda la plata en otra cosa?" : `¿Y lo que sobra (${money(P.resto)})?`}</h3><div style="overflow-x:auto"><table class="t"><thead><tr><th>Opción</th><th class="r">Por mes</th><th class="r">En 5 años</th><th>Se paga en</th><th>Riesgo</th><th>¿La recuperás?</th></tr></thead><tbody>
+    ${P.op.map(x => `<tr><td><b>${esc(x.nombre)}</b><div class="tiny mut">${esc(x.nota || "")}</div></td><td class="r ${x.mes > 0 ? "pos" : "neg"}">${money(x.mes)}</td><td class="r">${money(x.cinco)}</td><td>${x.payback ? fmt(x.payback / 12, 1) + " años" : "—"}</td><td>${esc(x.riesgo)}</td><td>${esc(x.liquidez)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="tiny mut" style="margin-top:6px">"En 5 años" = lo que ganás o ahorrás en total. Para el auto y el negocio no incluye lo que vale el auto o el negocio al final. Son cálculos para comparar: la decisión es tuya; para algo grande conviene consultar a un asesor financiero o contador.</div></div>` : ""}` : `<div class="card" style="margin-top:16px"><div class="small mut">Poné un monto y tocá Calcular. También podés preguntarle al asesor: <i>"me entraron U$S 30.000, ¿qué me conviene?"</i> o <i>"¿qué hago con el aguinaldo?"</i>.</div></div>`}`;
+}
+function bindPlata(r) {
+  const q = s => r.querySelector(s); if (!q("#plGo")) return;
+  q("#plGo").onclick = () => {
+    const c = cfgPlata(), g = (id, k) => { const el = q(id); if (el) c[k] = el.value === "" ? "" : +el.value; };
+    g("#plM", "monto"); c.moneda = q("#plMon").value; g("#plTasa", "tasaInv"); g("#plKm", "kmMes"); g("#plCons", "consumo"); g("#plNafta", "precioNafta"); g("#plPA", "precioAuto"); g("#plVA", "ventaAuto"); g("#plKwh", "kwh100"); g("#plPk", "precioKwh"); g("#plDif", "difFijos"); g("#plInv", "inversion"); g("#plGan", "gananciaMes");
+    commit("Plan de la plata extra");
+  };
+}
+function reglasPlata() {
+  return `PLATA EXTRA: si cuentan que les entró plata (aguinaldo, SRV, premio, sorteo, herencia, venta) o preguntan qué conviene hacer con un monto (cancelar deudas, auto eléctrico, invertir, poner un negocio), pedí el cálculo con {"respuesta":"","acciones":[],"calculo":{"tipo":"plata_extra","monto":0,"moneda":"UYU|USD","kmMes":0,"precioAuto":0,"ventaAuto":0,"inversion":0,"gananciaMes":0}} (los campos del auto y negocio solo si los dicen; precioAuto, ventaAuto e inversion en dólares). Con el resultado explicá el plan en orden, cuánto libera por mes, cómo cambian los meses en rojo y compará las opciones para lo que sobra con números (por mes, en 5 años, riesgo). Si el auto eléctrico o el negocio no se pagan en un plazo razonable, decilo claro. Recomendá la pantalla "¿Qué hago con esta plata?" para ver el detalle. Aclarás que son cálculos y que la decisión es de ellos.`;
+}
+
+// ===================== TICKETS DEL SÚPER: producto por producto =====================
+const CATS_ITEM = ["Refrescos y jugos", "Golosinas y snacks", "Alcohol", "Carne, pollo y pescado", "Frutas y verduras", "Lácteos y huevos", "Almacén", "Panadería", "Fiambres y quesos", "Congelados", "Comida preparada", "Limpieza", "Higiene y cuidado personal", "Medicamentos", "Ferretería y hogar", "Ropa y calzado", "Tecnología", "Librería y útiles", "Mascotas", "Otros"];
+const CATS_VIGILAR = ["Refrescos y jugos", "Golosinas y snacks", "Alcohol"];
+const normProd = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ,.]/g, " ").replace(/\s+/g, " ").trim();
+function tickets() { return (S.tickets || []).concat(S.data.ticketsLocal || []).filter(t => !t.deleted).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "")); }
+async function guardarTicket(t) {
+  const data = Object.assign({ __ticket: true }, t);
+  if (typeof sb !== "undefined" && sb && S.hogar) {
+    const id = uuid(), r = await sb.from("movimientos").insert({ id, hogar_id: S.hogar, data, por: S.user.nombre, deleted: false }); if (r.error) throw r.error;
+    S.tickets = (S.tickets || []).concat([Object.assign({}, data, { id, por: S.user.nombre })]); return id;
+  }
+  const id = "t" + Date.now().toString(36); (S.data.ticketsLocal = S.data.ticketsLocal || []).push(Object.assign({}, data, { id })); return id;
+}
+async function borrarTicket(id) {
+  if ((S.data.ticketsLocal || []).some(t => t.id === id)) { S.data.ticketsLocal = S.data.ticketsLocal.filter(t => t.id !== id); return; }
+  if (typeof sb !== "undefined" && sb) { const r = await sb.from("movimientos").update({ deleted: true, updated_at: new Date().toISOString() }).eq("id", id); if (r.error) throw r.error; }
+  S.tickets = (S.tickets || []).filter(t => t.id !== id);
+}
+function itemsDe(desde, hasta) { const out = []; tickets().forEach(t => { if ((desde && t.fecha < desde) || (hasta && t.fecha > hasta)) return; (t.items || []).forEach(it => out.push(Object.assign({ fecha: t.fecha, comercio: t.comercio || "" }, it))); }); return out; }
+const finMes = m => m + "-31";
+function resumenSuper(m) {
+  const I = itemsDe(m + "-01", finMes(m)), porCat = {}, porProd = {};
+  I.forEach(it => { const c = CATS_ITEM.includes(it.cat) ? it.cat : "Otros", v = +it.total || (+it.unit || 0) * (+it.cant || 1); porCat[c] = (porCat[c] || 0) + v;
+    const k = normProd(it.p); const p = porProd[k] = porProd[k] || { p: it.p, cat: c, cant: 0, total: 0 }; p.cant += +it.cant || 1; p.total += v; });
+  const total = Object.values(porCat).reduce((s, x) => s + x, 0), tks = tickets().filter(t => (t.fecha || "").slice(0, 7) === m);
+  return { m, total, porCat, porProd, n: tks.length, vigilar: CATS_VIGILAR.reduce((s, c) => s + (porCat[c] || 0), 0) };
+}
+function preciosProducto() {
+  const P = {}; itemsDe().forEach(it => { const u = +it.unit || ((+it.total || 0) / (+it.cant || 1)); if (!(u > 0)) return; const k = normProd(it.p); (P[k] = P[k] || { p: it.p, cat: it.cat, compras: [] }).compras.push({ fecha: it.fecha, comercio: it.comercio, u }); });
+  return Object.values(P).map(x => { x.compras.sort((a, b) => a.fecha.localeCompare(b.fecha)); const porCom = {}; x.compras.forEach(c => { const cc = c.comercio || "?"; porCom[cc] = Math.min(porCom[cc] || Infinity, c.u); }); x.porCom = porCom; x.ult = x.compras[x.compras.length - 1]; x.pri = x.compras[0]; return x; });
+}
+function repetidos() {
+  const P = {}, hace = fechaLocal(new Date(Date.now() - 200 * 864e5));
+  itemsDe(hace).forEach(it => { const k = normProd(it.p); const x = P[k] = P[k] || { p: it.p, cat: it.cat, meses: {}, fechas: [], total: 0, cant: 0 }; x.meses[it.fecha.slice(0, 7)] = 1; x.fechas.push(it.fecha); x.total += +it.total || 0; x.cant += +it.cant || 1; });
+  return Object.values(P).filter(x => Object.keys(x.meses).length >= 2).map(x => { const nm = Object.keys(x.meses).length, f = x.fechas.sort(); const dias = (new Date(f[f.length - 1]) - new Date(f[0])) / 864e5 / Math.max(1, f.length - 1);
+    return Object.assign(x, { nm, porMes: x.total / nm, cantMes: x.cant / nm, cada: dias > 3 ? dias : null, ultima: f[f.length - 1], proxima: dias > 3 ? fechaLocal(new Date(new Date(f[f.length - 1] + "T12:00").getTime() + dias * 864e5)) : null }); }).sort((a, b) => b.porMes - a.porMes);
+}
+function cfgSuper() { return (S.data.config.superMetas = S.data.config.superMetas || []); }
+function avanceMeta(mt) {
+  const hoy = new Date(), desde = mt.periodo === "semana" ? (() => { const d = new Date(hoy); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return fechaLocal(d); })() : todayKey() + "-01";
+  const I = itemsDe(desde, todayISO()).filter(it => mt.tipo === "cat" ? it.cat === mt.clave : normProd(it.p).includes(normProd(mt.clave)));
+  const v = mt.unidad === "$" ? I.reduce((s, it) => s + (+it.total || 0), 0) : I.reduce((s, it) => s + (+it.cant || 1), 0);
+  return { v, max: +mt.max || 0, pasado: v > (+mt.max || 0), desde };
+}
+function superTexto() {
+  const m = todayKey(), a = resumenSuper(m), b = resumenSuper(E.addM(m, -1)); if (!a.n && !b.n) return "## Compras con ticket\nTodavía no hay tickets cargados con detalle.";
+  const top = Object.values(a.porProd).sort((x, y) => y.total - x.total).slice(0, 12);
+  const vig = Object.values(a.porProd).filter(p => CATS_VIGILAR.includes(p.cat)).sort((x, y) => y.cant - x.cant).slice(0, 8);
+  const vigAnt = Object.values(b.porProd).filter(p => CATS_VIGILAR.includes(p.cat));
+  const subas = preciosProducto().filter(x => x.compras.length > 1 && x.ult.u > x.pri.u * 1.05).slice(0, 6), comp = preciosProducto().filter(x => Object.keys(x.porCom).length > 1).slice(0, 6);
+  return `## Compras con ticket (súper, farmacia, ferretería…, producto por producto)
+Este mes: ${a.n} tickets, ${money(a.total)}. Por tipo: ${Object.entries(a.porCat).sort((x, y) => y[1] - x[1]).map(([k, v]) => k + " " + money(v)).join(", ")}. Mes pasado: ${money(b.total)}.
+Productos con más gasto este mes: ${top.map(p => `${p.p} x${fmt(p.cant, 0)} = ${money(p.total)}`).join("; ")}.
+A vigilar este mes (refrescos/golosinas/alcohol): ${vig.map(p => `${p.p} x${fmt(p.cant, 0)} (${money(p.total)})`).join("; ") || "nada"}; mes pasado: ${vigAnt.map(p => `${p.p} x${fmt(p.cant, 0)}`).join("; ") || "nada"}.
+Metas: ${cfgSuper().map(mt => { const x = avanceMeta(mt); return `${mt.clave} máx ${mt.max} ${mt.unidad === "$" ? "$" : "unid."} por ${mt.periodo}: lleva ${fmt(x.v, 0)}${x.pasado ? " (SE PASÓ)" : ""}`; }).join("; ") || "ninguna"}.
+Compras que se repiten (por mes): ${repetidos().slice(0, 12).map(x => `${x.p} ≈ ${fmt(x.cantMes, 1)} unid. ${money(x.porMes)}/mes${x.proxima ? ", próxima ~" + fmtDate(x.proxima) : ""}`).join("; ") || "—"}.
+Subieron de precio: ${subas.map(x => `${x.p} ${money(x.pri.u)} → ${money(x.ult.u)}`).join("; ") || "—"}. Precio por comercio: ${comp.map(x => x.p + ": " + Object.entries(x.porCom).map(([c, u]) => c + " " + money(u)).join(" / ")).join("; ") || "—"}.`;
+}
+function reglasSuper() {
+  return `TICKETS CON PRODUCTOS (súper, almacén, feria, carnicería, farmacia, ferretería, kiosco, tienda, cualquier comercio): si te pasan la foto o PDF de un ticket o factura con productos (aunque sea uno solo), leé TODAS las líneas y proponé UNA sola acción {"tipo":"ticket_items","fecha":"YYYY-MM-DD","comercio":"","total":0,"medio":"Efectivo o la tarjeta/cuenta que se vea en el ticket","categoria":"categoría del gasto de la casa (Supermercado, Salud y farmacia, Hogar y ferretería, etc., de las categorías de la app)","items":[{"p":"nombre claro del producto con tamaño, ej. Coca-Cola 2,25 L","cant":1,"unit":0,"total":0,"cat":"${CATS_ITEM.join("|")}"}]}. NO propongas además un gasto aparte: la app ya lo carga sola si no estaba (y si ya estaba cargado, solo le agrega el detalle). Si tiene descuentos, poné el total con descuento en cada línea o una línea "Descuento" con total negativo. El "total" es el TOTAL A PAGAR del ticket. Después comentá en 2-3 frases lo que llame la atención comparando con "Compras del súper" (ej. muchos refrescos o golosinas, algo que subió de precio, dónde está más barato), sin retar. Si preguntan "¿estoy comprando mucha Coca/golosinas?" o "¿cuánto gasto en X por mes?", respondé con esos números (incluye "Compras que se repiten", ej. un remedio que compran todos los meses). Sobre medicamentos, hablá solo de cantidades, precios y fechas, sin opinar de salud. Si quieren ponerse un límite ("máximo 4 cocas por semana"), proponé {"tipo":"meta_super","tipoMeta":"prod|cat","clave":"coca","max":4,"unidad":"unid|$","periodo":"semana|mes"}.`;
+}
+function descTicket(a) {
+  if (a.tipo === "meta_super") return `🎯 Meta del súper: <b>${esc(a.clave)}</b> máximo <b>${a.unidad === "$" ? money(+a.max) : fmt(+a.max, 0) + " unid."}</b> por ${a.periodo === "mes" ? "mes" : "semana"}`;
+  if (a.tipo !== "ticket_items") return null;
+  const its = a.items || [], suma = its.reduce((s, it) => s + (+it.total || 0), 0), ok = Math.abs(suma - (+a.total || 0)) <= Math.max(2, (+a.total || 0) * 0.01);
+  const ya = buscarGastoTicket(a), vig = its.filter(it => CATS_VIGILAR.includes(it.cat));
+  return `🛒 <b>${esc(a.comercio || "Ticket")}</b> · ${a.fecha ? fmtDate(a.fecha) : ""} · <b>${money(+a.total || 0)}</b> · ${its.length} productos ${ok ? `<span class="pill green">✔ la suma coincide</span>` : `<span class="pill amber">⚠ suman ${money(suma)}</span>`}
+    <div class="tiny mut">${ya ? `Ya estaba cargado (${esc(ya.desc || "")} ${money(ya.v)}): solo se agrega el detalle.` : `Se carga el gasto en ${esc(a.categoria || "Supermercado")} con ${esc(a.medio || "Efectivo")}.`}${vig.length ? ` · A vigilar: ${vig.map(it => esc(it.p) + " x" + fmt(+it.cant || 1, 0)).join(", ")}` : ""}</div>`;
+}
+function buscarGastoTicket(a) {
+  const t = +a.total || 0, f = a.fecha || todayISO(), d0 = new Date(f + "T12:00").getTime();
+  return todasCompras(false).find(c => Math.abs(c.v - t) <= Math.max(3, t * 0.015) && Math.abs(new Date(c.fecha + "T12:00").getTime() - d0) <= 2.5 * 864e5);
+}
+function aplicarTicket(a) {
+  if (a.tipo === "meta_super") { cfgSuper().push({ tipo: a.tipoMeta === "cat" ? "cat" : "prod", clave: a.clave || "", max: +a.max || 0, unidad: a.unidad === "$" ? "$" : "unid", periodo: a.periodo === "mes" ? "mes" : "semana" }); return true; }
+  if (a.tipo !== "ticket_items") return undefined;
+  const items = (a.items || []).map(it => ({ p: String(it.p || "").slice(0, 80), cant: +it.cant || 1, unit: +it.unit || 0, total: +it.total || 0, cat: CATS_ITEM.includes(it.cat) ? it.cat : "Otros" }));
+  const ya = buscarGastoTicket(a);
+  if (!ya && +a.total > 0) { const card = L.isCard(a.medio || ""); const cats = S.data.config.categorias || []; S.data.movimientos.unshift({ fecha: a.fecha || todayISO(), tipo: "Gasto", descripcion: a.comercio || "Compra", categoria: cats.includes(a.categoria) ? a.categoria : "Supermercado", persona: (S.user && S.user.nombre) || "Cristhian", moneda: "UYU", monto: +a.total, medio: a.medio || "Efectivo", cuotas: card ? 1 : null }); }
+  const t = { fecha: a.fecha || todayISO(), comercio: a.comercio || "", categoria: a.categoria || "Supermercado", total: +a.total || 0, items, gastoYa: !!ya };
+  guardarTicket(t).then(() => { try { renderSuave ? renderSuave() : render(); } catch (e) { } }).catch(e => toast("No pude guardar el detalle del ticket: " + e.message));
+  return true;
+}
+// ---------- Pantalla
+function vSuper() {
+  const m = S.mes || todayKey(), a = resumenSuper(m), b = resumenSuper(E.addM(m, -1)), cats = Object.entries(a.porCat).sort((x, y) => y[1] - x[1]);
+  const maxC = Math.max(1, ...cats.map(x => x[1])), prods = Object.values(a.porProd).sort((x, y) => y.total - x.total);
+  const PP = preciosProducto(), subas = PP.filter(x => x.compras.length > 1 && x.ult.u > x.pri.u * 1.03).sort((x, y) => y.ult.u / y.pri.u - x.ult.u / x.pri.u).slice(0, 8);
+  const comp = PP.filter(x => Object.keys(x.porCom).length > 1).slice(0, 10);
+  const hace60 = fechaLocal(new Date(Date.now() - 60 * 864e5)), frec = PP.filter(x => x.compras.filter(c => c.fecha >= hace60).length >= 2).sort((x, y) => y.compras.length - x.compras.length).slice(0, 25);
+  const vigA = a.vigilar, vigB = b.vigilar, TK = tickets().slice(0, 12);
+  return header("🧾 Compras con ticket", "Súper, farmacia, ferretería, lo que sea: pasale al asesor la foto del ticket (📎, cámara o Compartir) y la app guarda cada producto. Si solo cargás el monto, queda como gasto normal sin detalle.", true) + `
+  <div class="grid g4">
+    <div class="card kpi k-blue"><div class="lab">🧾 Tickets con detalle</div><div class="val">${a.n}</div><div class="foot">${money(a.total)} en ${E.mesLargo(m)}</div></div>
+    <div class="card kpi ${vigA > vigB && vigB ? "k-red" : "k-amber"}"><div class="lab">🍬 Refrescos, golosinas y alcohol</div><div class="val">${money(vigA)}</div><div class="foot">${a.total ? Math.round(vigA / a.total * 100) + "% de lo comprado" : "—"}${b.n ? ` · mes pasado ${money(vigB)}` : ""}</div></div>
+    <div class="card kpi k-violet"><div class="lab">📈 Productos que subieron</div><div class="val">${subas.length}</div><div class="foot">desde la primera vez que los compraste</div></div>
+    <div class="card kpi k-green"><div class="lab">🎯 Metas</div><div class="val">${cfgSuper().filter(mt => !avanceMeta(mt).pasado).length}/${cfgSuper().length}</div><div class="foot">cumpliéndose</div></div></div>
+  <div style="margin-top:12px"><label class="btn pri" style="cursor:pointer">📷 Escanear un ticket<input type="file" accept="image/*,application/pdf" id="supScan" style="display:none" multiple></label> <span class="tiny mut">se abre el asesor con el ticket y te propone cargarlo</span></div>
+  ${(() => { const R = repetidos(); return R.length ? `<div class="card" style="margin-top:16px"><h3>🔁 Compras que se repiten <span class="hint">lo que comprás todos los meses</span></h3>${R.slice(0, 15).map(x => `<div class="rowbar"><span class="n">${esc(x.p)} <span class="tiny mut">≈ ${fmt(x.cantMes, 1)} por mes${x.proxima ? " · próxima ~" + fmtDate(x.proxima) : ""}</span></span><span class="v">${money(x.porMes)}/mes</span></div>`).join("")}</div>` : ""; })()}
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>Por tipo de producto</h3>${cats.map(([k, v]) => `<div class="rowbar"><span class="n">${CATS_VIGILAR.includes(k) ? "⚠️ " : ""}${esc(k)}</span><span class="v">${money(v)}</span></div>${barHTML(v / maxC, CATS_VIGILAR.includes(k) ? "#F59E0B" : "#2563EB")}`).join("") || `<div class="small mut">Sin tickets este mes.</div>`}</div>
+    <div class="card"><h3>Lo que más compraste</h3>${prods.slice(0, 12).map(p => `<div class="rowbar"><span class="n">${CATS_VIGILAR.includes(p.cat) ? "⚠️ " : ""}${esc(p.p)} <span class="tiny mut">x${fmt(p.cant, 0)}</span></span><span class="v">${money(p.total)}</span></div>`).join("") || `<div class="small mut">—</div>`}</div></div>
+  <div class="card" style="margin-top:16px"><h3>🎯 Mis metas de compras <span class="hint">ej.: máximo 4 Coca-Colas por semana</span></h3>
+    ${cfgSuper().map((mt, i) => { const x = avanceMeta(mt); return `<div class="rowbar"><span class="n">${esc(mt.clave)} · máx ${mt.unidad === "$" ? money(mt.max) : fmt(mt.max, 0) + " unid."} por ${mt.periodo} <a href="#" data-smdel="${i}" style="text-decoration:none">✕</a></span><span class="v ${x.pasado ? "neg" : "pos"}">${mt.unidad === "$" ? money(x.v) : fmt(x.v, 0)}</span></div>${barHTML(Math.min(1, x.v / (x.max || 1)), x.pasado ? "#DC2626" : x.v / (x.max || 1) > .8 ? "#F59E0B" : "#16A34A")}`; }).join("") || `<div class="small mut">Sin metas todavía.</div>`}
+    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><select id="smT"><option value="prod">Producto</option><option value="cat">Tipo</option></select><input id="smC" placeholder="coca / Golosinas y snacks" style="width:170px"><span class="small">máx</span><input id="smM" type="number" style="width:70px"><select id="smU"><option value="unid">unidades</option><option value="$">$</option></select><span class="small">por</span><select id="smP"><option value="semana">semana</option><option value="mes">mes</option></select><button class="btn sm blue" id="smAdd">➕</button></div></div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h3>📈 Subieron de precio</h3>${subas.map(x => `<div class="rowbar"><span class="n">${esc(x.p)} <span class="tiny mut">${fmtDate(x.pri.fecha)} → ${fmtDate(x.ult.fecha)}</span></span><span class="v neg">${money(x.pri.u)} → ${money(x.ult.u)} (+${Math.round((x.ult.u / x.pri.u - 1) * 100)}%)</span></div>`).join("") || `<div class="small mut">Se ve cuando compres el mismo producto más de una vez.</div>`}</div>
+    <div class="card"><h3>🏷️ Dónde está más barato</h3>${comp.map(x => { const e = Object.entries(x.porCom).sort((p, q) => p[1] - q[1]); return `<div class="rowbar"><span class="n">${esc(x.p)}</span><span class="v">${e.map(([c, u], j) => `<span class="${j === 0 ? "pos" : "mut"}">${esc(c)} ${money(u)}</span>`).join(" · ")}</span></div>`; }).join("") || `<div class="small mut">Se ve cuando compres lo mismo en distintos lugares.</div>`}</div></div>
+  <div class="card" style="margin-top:16px"><h3>📝 Lista de compras <span class="hint">lo que comprás seguido, con el lugar más barato</span></h3>
+    ${frec.map(x => { const e = Object.entries(x.porCom).sort((p, q) => p[1] - q[1])[0]; return `<label class="rowbar" style="cursor:pointer"><span class="n"><input type="checkbox" class="supLi" data-t="${esc(x.p)}${e ? " (" + esc(e[0]) + " " + money(e[1]) + ")" : ""}"> ${esc(x.p)}</span><span class="v tiny">${e ? esc(e[0]) + " " + money(e[1]) : ""}</span></label>`; }).join("") || `<div class="small mut">Aparece cuando tengas algunos tickets.</div>`}
+    ${frec.length ? `<button class="btn sm" id="supCopy" style="margin-top:8px">📋 Copiar los marcados</button>` : ""}</div>
+  <div class="card" style="margin-top:16px"><h3>🧾 Últimos tickets</h3>${TK.map(t => `<details style="border-bottom:1px solid var(--line);padding:6px 0"><summary style="cursor:pointer"><b>${esc(t.comercio || "Ticket")}</b> · ${fmtDate(t.fecha)} · ${money(t.total)} <span class="tiny mut">${(t.items || []).length} productos</span></summary>${(t.items || []).map(it => `<div class="rowbar"><span class="n">${esc(it.p)} <span class="tiny mut">x${fmt(+it.cant || 1, 0)} · ${esc(it.cat)}</span></span><span class="v">${money(+it.total || 0)}</span></div>`).join("")}<a href="#" class="tiny" data-tkdel="${esc(t.id)}">Borrar este detalle</a></details>`).join("") || `<div class="small mut">Todavía no hay tickets con detalle.</div>`}</div>`;
+}
+function bindSuper(r) {
+  const q = s => r.querySelector(s);
+  q("#supScan") && (q("#supScan").onchange = async e => { const fs = [...e.target.files]; if (!fs.length) return; S.adj = []; for (const f of fs.slice(0, 5)) S.adj.push(await fileToAdj(f)); S.chatOpen = true; renderChat(); sendChat("Este es un ticket de compra: leé todos los productos y proponé cargarlo con el detalle.", "🧾 Ticket de compra"); });
+  q("#smAdd") && (q("#smAdd").onclick = () => { const c = q("#smC").value.trim(), m = +q("#smM").value; if (!c || !(m > 0)) return toast("Completá qué y el máximo"); cfgSuper().push({ tipo: q("#smT").value, clave: c, max: m, unidad: q("#smU").value, periodo: q("#smP").value }); commit("Meta del súper agregada"); });
+  r.querySelectorAll("[data-smdel]").forEach(a => a.onclick = ev => { ev.preventDefault(); cfgSuper().splice(+a.dataset.smdel, 1); commit("Meta quitada"); });
+  r.querySelectorAll("[data-tkdel]").forEach(a => a.onclick = async ev => { ev.preventDefault(); if (!confirm("¿Borrar el detalle de este ticket? (el gasto queda)")) return; try { await borrarTicket(a.dataset.tkdel); commit("Detalle borrado"); } catch (e) { toast(e.message); } });
+  q("#supCopy") && (q("#supCopy").onclick = () => { const t = [...r.querySelectorAll(".supLi:checked")].map(x => "• " + x.dataset.t).join("\n"); if (!t) return toast("Marcá algo primero"); navigator.clipboard.writeText("Lista de compras\n" + t).then(() => toast("Lista copiada"), () => toast("No pude copiar")); });
+}
+// avisos en el Panel cuando una meta del súper se pasa
+function avisosSuper() { return cfgSuper().map(mt => ({ mt, x: avanceMeta(mt) })).filter(o => o.x.pasado).map(o => ({ tipo: "naranja", txt: `🛒 Te pasaste de tu meta: ${o.mt.clave} (${o.mt.unidad === "$" ? money(o.x.v) : fmt(o.x.v, 0)} de ${o.mt.unidad === "$" ? money(o.mt.max) : fmt(o.mt.max, 0)}) esta ${o.mt.periodo === "mes" ? "mes" : "semana"}.` })); }
+// hooks para el asesor
+function contexto13() { try { return superTexto(); } catch (e) { return ""; } }
+function reglas13() { return reglasPlata() + "\n" + reglasSuper(); }
+function desc13(a) { return descTicket(a); }
+function aplicar13(a) { return aplicarTicket(a); }
+
 // ===================== ARRANQUE Y NAVEGACIÓN =====================
 const VIEWS = {
-  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], mesada: [vMesada, bindMesada], proyeccion: [vProyeccion],
+  panel: [() => { tickProgreso(); let h = vPanel(); const j = h.indexOf('<div id="pushNudge">'); if (j > 0) h = h.slice(0, j) + hoyGastarHTML() + h.slice(j); const i = h.indexOf('<div class="grid g21"'); S._logroNuevo = null; return i > 0 ? h.slice(0, i) + ultimosPanelHTML() + h.slice(i) : h + ultimosPanelHTML(); }, (r) => { bindExtra(r); bindMetas(r); bindRitmo(r); bindAlcanciaPanel(r); }], gastos: [vGastos, bindGastos], cargar: [vCargar, (r) => { bindCargar(r); bindCostumbres(r); }], asesor: [() => vAsesor() + saludHTML() + suscripcionesHTML() + interesesHTML(), (r) => { bindAsesor(r); bindSuscripciones(r); }], rescate: [() => vRescate() + `<div class="card" style="margin-top:16px"><h3>🧮 ¿Y las deudas?</h3><div class="small">Qué pagar primero, cuándo quedan libres y si conviene un préstamo para ordenar todo: <a href="#" data-go="deudas"><b>Plan de deudas →</b></a></div></div>`, bindRescate], deudas: [vDeudas, bindDeudas], calendario: [() => vCalendario() + debitosHTML(), bindCalendario], wrapped: [vWrapped, bindWrapped], tarjetas: [() => vTarjetas() + (typeof parcialHTML === "function" ? parcialHTML() : ""), (r) => { bindTarjetas(r); typeof bindParcial === "function" && bindParcial(r); }], provisiones: [vProvisiones, bindProvisiones], viaje: [vViaje, bindViaje], gestiones: [vGestiones, bindGestiones], progreso: [vProgreso, bindProgreso], mesada: [vMesada, bindMesada], plata: [vPlata, bindPlata], super: [vSuper, bindSuper], proyeccion: [vProyeccion],
   fijos: [() => vFijos() + segurosHTML(), (r) => { bindFijos(r); bindSeguros(r); }], ingresos: [() => vIngresos() + irpfHTML(), (r) => { bindIngresos(r); bindIRPF(r); }], prestamos: [vPrestamos, bindPrestamos], ahorro: [vAhorro, (r) => { bindAhorro(r); bindMetas(r); }],
   pendientes: [vPendientes, bindPendientes], config: [() => vConfig() + topesConfigHTML(), (r) => { bindConfig(r); bindTopesConfig(r); if (typeof renderAvisosCfg === "function" && S.user) renderAvisosCfg(); }], permitir: [() => { const h = vPermitir(), sg = typeof sugerenciaTarjetaHTML === "function" ? sugerenciaTarjetaHTML() : ""; if (!sg) return h; const i = h.indexOf('<div class="card" style="margin-top:16px"><h3>🔢'); return i > 0 ? h.slice(0, i) + sg + h.slice(i) : h + sg; }, (r) => { bindPermitir(r); const a = $("#simUsarMejor"); a && (a.onclick = (e) => { e.preventDefault(); SIM.medio = a.dataset.t; render(); }); }], cazador: [() => vCazador() + planesHTML(), (r) => { bindCazador(r); bindPlanes(r); }], informes: [() => { const h = vInformes(); const i = h.indexOf('<div class="grid"'); return i > 0 ? h.slice(0, i) + hormigaHTML() + mapaCalorHTML() + h.slice(i) : h + hormigaHTML() + mapaCalorHTML(); }, bindInformes], beneficios: [vBeneficios, bindBeneficios]
 };
